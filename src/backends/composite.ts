@@ -65,6 +65,25 @@ export class CompositeBackend implements BackendProtocolV2 {
     return isSandboxBackend(this.default) ? this.default.id : "";
   }
 
+  /** Route prefixes registered on this backend (e.g. `["/workspace"]`). */
+  get routePrefixes(): string[] {
+    return Object.keys(this.routes);
+  }
+
+  /**
+   * Type guard — returns true if `backend` is a {@link CompositeBackend}.
+   *
+   * Uses duck-typing on `routePrefixes` so it works across module boundaries
+   * where `instanceof` may fail.
+   */
+  static isInstance(backend: unknown): backend is CompositeBackend {
+    return (
+      typeof backend === "object" &&
+      backend !== null &&
+      Array.isArray((backend as Record<string, unknown>).routePrefixes)
+    );
+  }
+
   /**
    * Determine which backend handles this key and strip prefix.
    *

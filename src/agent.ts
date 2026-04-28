@@ -176,6 +176,7 @@ export function createDeepAgent<
     name,
     memory,
     skills,
+    permissions = [],
   } = params;
 
   const collidingTools = tools
@@ -209,6 +210,8 @@ export function createDeepAgent<
    * If a custom subagent needs skills, it must specify its own `skills` array.
    */
   const normalizeSubagentSpec = (input: SubAgent): SubAgent => {
+    const effectivePermissions = input.permissions ?? permissions;
+
     // Middleware for custom subagents (does NOT include skills from main agent).
     // Uses createSummarizationMiddleware (deepagents version) with backend support
     // and auto-computed defaults from model profile.
@@ -216,7 +219,10 @@ export function createDeepAgent<
       // Provides todo list management capabilities for tracking tasks.
       todoListMiddleware(),
       // Enables filesystem operations and optional long-term memory storage.
-      createFilesystemMiddleware({ backend }),
+      createFilesystemMiddleware({
+        backend,
+        permissions: effectivePermissions,
+      }),
       // Automatically summarizes conversation history when token limits are approached.
       // Uses createSummarizationMiddleware (deepagents version) with backend support
       // and auto-computed defaults from model profile.
@@ -282,7 +288,7 @@ export function createDeepAgent<
     // Provides todo list management capabilities for tracking tasks.
     todoListMiddleware(),
     // Enables filesystem operations and optional long-term memory storage.
-    createFilesystemMiddleware({ backend }),
+    createFilesystemMiddleware({ backend, permissions }),
     // Enables delegation to specialized subagents for complex tasks.
     createSubAgentMiddleware({
       defaultModel: model,
