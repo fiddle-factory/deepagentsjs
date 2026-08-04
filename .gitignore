@@ -64,3 +64,10 @@ coverage
 workspace/
 __pycache__/
 .venv/
+
+# Fork-only: we are consumed via `github:` (no registry, no auth), so the
+# built package must be committed. Upstream ignores dist because it publishes
+# to npm; that path costs a token on every read (GitHub Packages authenticates
+# even public packages: 401 anonymous, 200 with token).
+!libs/deepagents/dist
+!libs/deepagents/dist/**
