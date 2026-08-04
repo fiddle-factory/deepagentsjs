@@ -33,6 +33,7 @@ import { StateBackend } from "../backends/state.js";
 import {
   sanitizeToolCallId,
   formatContentWithLineNumbers,
+  formatGrepMatches,
   truncateIfTooLong,
   getMimeType,
   isTextMimeType,
@@ -1055,7 +1056,8 @@ function createGrepTool(
       }
 
       const resolvedBackend = await resolveBackend(backend, runtime);
-      const { pattern, path = "/", glob = null } = input;
+      const { pattern, path = "/", glob = null, output_mode = "content" } =
+        input;
       const result = await resolvedBackend.grep(pattern, path, glob);
 
       // If string, it's an error
@@ -1074,23 +1076,10 @@ function createGrepTool(
         return `No matches found for pattern '${pattern}'`;
       }
 
-      // Format output: group by file
-      const lines: string[] = [];
-      let currentFile: string | null = null;
-      for (const match of matches) {
-        if (match.path !== currentFile) {
-          currentFile = match.path;
-          lines.push(`\n${currentFile}:`);
-        }
-        lines.push(`  ${match.line}: ${match.text}`);
-      }
+      const formatted = formatGrepMatches(matches, output_mode);
+      const truncated = truncateIfTooLong(formatted);
 
-      const truncated = truncateIfTooLong(lines);
-
-      if (Array.isArray(truncated)) {
-        return truncated.join("\n");
-      }
-      return truncated;
+      return typeof truncated === "string" ? truncated : truncated.join("\n");
     },
     {
       name: "grep",
@@ -1111,6 +1100,13 @@ function createGrepTool(
           .nullable()
           .default(null)
           .describe("Optional glob pattern to filter files (e.g., '*.py')"),
+        output_mode: z
+          .enum(["files_with_matches", "content", "count"])
+          .optional()
+          .default("content")
+          .describe(
+            "Output format: 'files_with_matches' lists matching file paths, 'content' shows matching lines (default), 'count' shows match counts per file",
+          ),
       }),
     },
   );
