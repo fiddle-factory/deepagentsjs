@@ -76,6 +76,29 @@ export interface GrepResult {
 }
 
 /**
+ * Optional search tuning passed through to the backend.
+ *
+ * Every field is optional and every backend may ignore the whole object, so
+ * adding this to `grep` does not break an existing implementation. Backends
+ * that honor it are expected to CLAMP rather than reject out-of-range values —
+ * a bad number should degrade the search, not fail it — and to treat `exclude`
+ * as additive to their own built-in excludes, never as a way to remove one.
+ */
+export interface GrepOptions {
+  /** Lines of context around each match. Backend clamps to its own ceiling. */
+  context?: number;
+  /**
+   * Force case sensitivity. Omit for smart-case, where an all-lowercase
+   * pattern matches case-insensitively and any uppercase makes it exact.
+   */
+  ignoreCase?: boolean;
+  /** Maximum matches to return. A backend may cap this lower. */
+  limit?: number;
+  /** Extra exclude globs, ADDED to the backend's defaults. Never removes one. */
+  exclude?: string[];
+}
+
+/**
  * Legacy file data format (v1).
  *
  * Content is stored as an array of lines (split on "\n"). This format

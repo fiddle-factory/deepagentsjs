@@ -13,6 +13,7 @@ import type {
   FileUploadResponse,
   GlobResult,
   GrepMatch,
+  GrepOptions,
   GrepResult,
   LsResult,
   ReadRawResult,
@@ -234,6 +235,7 @@ export class CompositeBackend implements BackendProtocolV2 {
     pattern: string,
     path: string | null = "/",
     glob: string | null = null,
+    opts?: GrepOptions,
   ): Promise<GrepResult> {
     const searchPath = path || "/";
 
@@ -241,7 +243,7 @@ export class CompositeBackend implements BackendProtocolV2 {
     for (const [routePrefix, backend] of this.sortedRoutes) {
       if (this.isPathWithinRoute(searchPath, routePrefix)) {
         const routeSearchPath = searchPath.substring(routePrefix.length - 1);
-        const raw = await backend.grep(pattern, routeSearchPath || "/", glob);
+        const raw = await backend.grep(pattern, routeSearchPath || "/", glob, opts);
 
         if (raw.error) {
           return raw;
@@ -258,7 +260,7 @@ export class CompositeBackend implements BackendProtocolV2 {
 
     // Otherwise, search default and routed backends mounted inside this path
     const allMatches: GrepMatch[] = [];
-    const rawDefault = await this.default.grep(pattern, searchPath, glob);
+    const rawDefault = await this.default.grep(pattern, searchPath, glob, opts);
 
     if (rawDefault.error) {
       return rawDefault;
@@ -272,7 +274,7 @@ export class CompositeBackend implements BackendProtocolV2 {
         continue;
       }
 
-      const raw = await backend.grep(pattern, "/", glob);
+      const raw = await backend.grep(pattern, "/", glob, opts);
 
       if (raw.error) {
         return raw;

@@ -1329,6 +1329,94 @@ describe("createFilesystemMiddleware", () => {
       expect(result).toContain("truncated");
     });
 
+    it("grep tool forwards search options to the backend", async () => {
+      const mockBackend = createMockBackend();
+      mockBackend.grep = vi.fn().mockResolvedValue({ matches: [] });
+
+      const state = { messages: [], files: {} };
+      vi.mocked(getCurrentTaskInput).mockReturnValue(state);
+
+      const middleware = createFilesystemMiddleware({
+        backend: () => mockBackend,
+      });
+      const grepTool = middleware.tools!.find(
+        (t: any) => t.name === "grep",
+      ) as any;
+
+      await grepTool.invoke({
+        pattern: "needle",
+        path: "/src",
+        context: 4,
+        ignoreCase: true,
+        limit: 50,
+        exclude: ["**/*.test.ts"],
+      });
+
+      expect(mockBackend.grep).toHaveBeenCalledWith("needle", "/src", null, {
+        context: 4,
+        ignoreCase: true,
+        limit: 50,
+        exclude: ["**/*.test.ts"],
+      });
+    });
+
+    it("grep tool sends undefined, not null, for unset options", async () => {
+      // The schema uses `.nullable().default(null)` so every property lands in
+      // the JSON-Schema `required` array (this package's convention). null is
+      // the schema's "unset"; the backend protocol's GrepOptions is
+      // optional-undefined, so forwarding null would let a backend read an
+      // unset field as a value.
+      const mockBackend = createMockBackend();
+      mockBackend.grep = vi.fn().mockResolvedValue({ matches: [] });
+
+      const state = { messages: [], files: {} };
+      vi.mocked(getCurrentTaskInput).mockReturnValue(state);
+
+      const middleware = createFilesystemMiddleware({
+        backend: () => mockBackend,
+      });
+      const grepTool = middleware.tools!.find(
+        (t: any) => t.name === "grep",
+      ) as any;
+
+      await grepTool.invoke({ pattern: "needle" });
+
+      expect(mockBackend.grep).toHaveBeenCalledWith("needle", "/", null, {
+        context: undefined,
+        ignoreCase: undefined,
+        limit: undefined,
+        exclude: undefined,
+      });
+    });
+
+    it("grep tool suppresses context for output modes that ignore it", async () => {
+      // `files_with_matches` prints paths and `count` prints totals — neither
+      // renders match text, so fetching context lines for them inflates the
+      // payload to produce bytes that are immediately discarded.
+      const mockBackend = createMockBackend();
+      mockBackend.grep = vi.fn().mockResolvedValue({ matches: [] });
+
+      const state = { messages: [], files: {} };
+      vi.mocked(getCurrentTaskInput).mockReturnValue(state);
+
+      const middleware = createFilesystemMiddleware({
+        backend: () => mockBackend,
+      });
+      const grepTool = middleware.tools!.find(
+        (t: any) => t.name === "grep",
+      ) as any;
+
+      for (const mode of ["files_with_matches", "count"]) {
+        await grepTool.invoke({ pattern: "needle", context: 5, output_mode: mode });
+        expect(mockBackend.grep).toHaveBeenLastCalledWith(
+          "needle",
+          "/",
+          null,
+          expect.objectContaining({ context: 0 }),
+        );
+      }
+    });
+
     it("ls tool should not truncate small results", async () => {
       const smallFiles = [
         { path: "/file1.txt", is_dir: false, size: 100 },

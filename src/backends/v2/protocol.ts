@@ -10,6 +10,7 @@ import type {
   DeleteResult,
   ExecuteResponse,
   GlobResult,
+  GrepOptions,
   GrepResult,
   LsResult,
   MaybePromise,
@@ -88,12 +89,16 @@ export interface BackendProtocolV2 extends Omit<
    * @param pattern - Literal text pattern to search for
    * @param path - Base path to search from (default: null)
    * @param glob - Optional glob pattern to filter files (e.g., "*.py")
+   * @param opts - Optional search tuning. Additive and fully optional: a
+   *   backend that ignores it keeps its previous behavior, so existing
+   *   implementations remain valid without change.
    * @returns GrepResult with matches on success or error on failure
    */
   grep(
     pattern: string,
     path?: string | null,
     glob?: string | null,
+    opts?: GrepOptions,
   ): MaybePromise<GrepResult>;
 
   /**

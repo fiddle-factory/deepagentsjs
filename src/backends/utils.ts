@@ -717,7 +717,13 @@ export function formatGrepResults(
   for (const filePath of Object.keys(results).sort()) {
     lines.push(`${filePath}:`);
     for (const [lineNum, line] of results[filePath]) {
-      lines.push(`  ${lineNum}: ${line}`);
+      // A match's text may be a MULTI-LINE block when the backend was asked for
+      // context lines. Numbering the first line and indenting the rest keeps
+      // the block visually attached to its match — without the split, the
+      // continuation lines render flush-left and read as separate output.
+      const [first, ...rest] = line.split("\n");
+      lines.push(`  ${lineNum}: ${first}`);
+      for (const extra of rest) lines.push(`     ${extra}`);
     }
   }
   return lines.join("\n");
@@ -996,9 +1002,14 @@ export function adaptBackendProtocol(
       if (typeof result === "string") return { content: result };
       return result as ReadResult;
     },
-    async grep(pattern, path, glob): Promise<GrepResult> {
+    async grep(pattern, path, glob, opts): Promise<GrepResult> {
+      // `opts` must be forwarded here, not just accepted: this shim is what
+      // every v2 backend is reached through, so dropping the fourth argument
+      // would silently discard the caller's search options no matter how
+      // faithfully the tool layer passed them. v1's `grepRaw` predates the
+      // option object and takes three arguments, so it is left as-is.
       const result = await ("grep" in backend
-        ? (backend as BackendProtocolV2).grep(pattern, path, glob)
+        ? (backend as BackendProtocolV2).grep(pattern, path, glob, opts)
         : (backend as BackendProtocolV1).grepRaw(pattern, path, glob));
       if (Array.isArray(result)) return { matches: result };
       if (typeof result === "string") return { error: result };

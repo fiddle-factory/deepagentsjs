@@ -149,6 +149,7 @@ export {
   type FileInfo,
   type GrepMatch,
   type GlobResult,
+  type GrepOptions,
   type GrepResult,
   type LsResult,
   type ReadResult,

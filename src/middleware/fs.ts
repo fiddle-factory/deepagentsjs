@@ -1056,9 +1056,36 @@ function createGrepTool(
       }
 
       const resolvedBackend = await resolveBackend(backend, runtime);
-      const { pattern, path = "/", glob = null, output_mode = "content" } =
-        input;
-      const result = await resolvedBackend.grep(pattern, path, glob);
+      const {
+        pattern,
+        path = "/",
+        glob = null,
+        output_mode = "content",
+        context,
+        ignoreCase,
+        limit,
+        exclude,
+      } = input;
+      // `opts` is optional and purely additive: a backend that ignores the
+      // fourth argument behaves exactly as it did before, so every existing
+      // implementation stays valid without a change.
+      //
+      // Context is forced OFF unless the caller is actually reading lines.
+      // `files_with_matches` prints paths and `count` prints per-file totals —
+      // neither renders match text, so fetching context for them would inflate
+      // the payload (and push a capped result toward the byte cut) to produce
+      // bytes that are then discarded.
+      const wantsLines = output_mode === "content";
+      // `null` is the schema's "unset" (see the .nullable().default(null) note
+      // above); the protocol's GrepOptions uses optional-undefined, so convert
+      // rather than forwarding null and having a backend read it as a value.
+      const unset = <T,>(v: T | null | undefined): T | undefined => v ?? undefined;
+      const result = await resolvedBackend.grep(pattern, path, glob, {
+        context: wantsLines ? unset(context) : 0,
+        ignoreCase: unset(ignoreCase),
+        limit: unset(limit),
+        exclude: unset(exclude),
+      });
 
       // If string, it's an error
       if (result.error) {
@@ -1105,7 +1132,48 @@ function createGrepTool(
           .optional()
           .default("content")
           .describe(
-            "Output format: 'files_with_matches' lists matching file paths, 'content' shows matching lines (default), 'count' shows match counts per file",
+            "Output format: 'files_with_matches' lists matching file paths, 'content' shows each match with surrounding context lines (default), 'count' shows match counts per file. 'context' applies to 'content' only.",
+          ),
+        // Each of these carries `.optional().default(...)` — `.optional()` alone
+        // would leave it out of the JSON-Schema `required` array, which this
+        // package requires of every property (see the schema test in
+        // fs.test.ts). `.nullable()` mirrors `glob` above, so a provider that
+        // sends an explicit null for an unset field does not fail validation.
+        context: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .nullable()
+          .default(null)
+          .describe(
+            "Lines of context around each match in 'content' mode (default: 2). Use 0 for the matching line alone. Ignored by the other output modes.",
+          ),
+        ignoreCase: z
+          .boolean()
+          .optional()
+          .nullable()
+          .default(null)
+          .describe(
+            "Force case-insensitive (true) or case-sensitive (false) search. Omit for smart-case: an all-lowercase pattern matches case-insensitively.",
+          ),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .optional()
+          .nullable()
+          .default(null)
+          .describe(
+            "Maximum matches to return (default: 100). The backend may cap this lower.",
+          ),
+        exclude: z
+          .array(z.string())
+          .optional()
+          .nullable()
+          .default(null)
+          .describe(
+            "Additional glob patterns to exclude, e.g. ['**/*.test.ts']. These ADD to the backend's built-in excludes; they cannot remove one.",
           ),
       }),
     },
