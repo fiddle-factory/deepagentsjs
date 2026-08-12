@@ -3,18 +3,18 @@ import { AgentMiddleware, AgentMiddleware as AgentMiddleware$1, AgentRunStream, 
 import * as _langgraph from "@langchain/langgraph";
 import { AnnotationRoot, AnyStateSchema, Command, ReducedValue, StateDefinitionInit, StateSchema, StreamTransformer } from "@langchain/langgraph";
 import { z } from "zod/v4";
-import { BaseCheckpointSaver, BaseStore } from "@langchain/langgraph-checkpoint";
 import * as _messages from "@langchain/core/messages";
+import * as z$2 from "zod";
+import { z as z$1 } from "zod";
+import { Client } from "@langchain/langgraph-sdk";
+import { Client as Client$1 } from "langsmith";
+import { CaptureSnapshotOptions, CaptureSnapshotOptions as LangSmithCaptureSnapshotOptions, CreateSandboxOptions, Sandbox, Snapshot, Snapshot as LangSmithSnapshot, StartSandboxOptions, StartSandboxOptions as LangSmithStartSandboxOptions } from "langsmith/experimental/sandbox";
+import { BaseCheckpointSaver, BaseStore } from "@langchain/langgraph-checkpoint";
 import { ClientTool, ServerTool, StructuredTool as StructuredTool$1 } from "@langchain/core/tools";
 import { BaseLanguageModel, LanguageModelLike } from "@langchain/core/language_models/base";
 import { Runnable } from "@langchain/core/runnables";
-import * as z$2 from "zod";
-import { z as z$1 } from "zod";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import "@langchain/langgraph-sdk";
 import { InteropZodObject } from "@langchain/core/utils/types";
-import { Client } from "langsmith";
-import { CaptureSnapshotOptions, CaptureSnapshotOptions as LangSmithCaptureSnapshotOptions, CreateSandboxOptions, Sandbox, Snapshot, Snapshot as LangSmithSnapshot, StartSandboxOptions, StartSandboxOptions as LangSmithStartSandboxOptions } from "langsmith/experimental/sandbox";
 //#region src/backends/v1/protocol.d.ts
 /**
  * Protocol for pluggable memory backends (single, unified).
@@ -196,9 +196,12 @@ interface BackendProtocolV2 extends Omit<BackendProtocolV1, "read" | "readRaw" |
    * @param pattern - Literal text pattern to search for
    * @param path - Base path to search from (default: null)
    * @param glob - Optional glob pattern to filter files (e.g., "*.py")
+   * @param opts - Optional search tuning. Additive and fully optional: a
+   *   backend that ignores it keeps its previous behavior, so existing
+   *   implementations remain valid without change.
    * @returns GrepResult with matches on success or error on failure
    */
-  grep(pattern: string, path?: string | null, glob?: string | null): MaybePromise<GrepResult>;
+  grep(pattern: string, path?: string | null, glob?: string | null, opts?: GrepOptions): MaybePromise<GrepResult>;
   /**
    * Structured glob matching returning FileInfo objects.
    *
@@ -276,6 +279,28 @@ interface GrepResult {
   error?: string;
   /** Structured grep match entries, undefined on failure */
   matches?: GrepMatch[];
+}
+/**
+ * Optional search tuning passed through to the backend.
+ *
+ * Every field is optional and every backend may ignore the whole object, so
+ * adding this to `grep` does not break an existing implementation. Backends
+ * that honor it are expected to CLAMP rather than reject out-of-range values —
+ * a bad number should degrade the search, not fail it — and to treat `exclude`
+ * as additive to their own built-in excludes, never as a way to remove one.
+ */
+interface GrepOptions {
+  /** Lines of context around each match. Backend clamps to its own ceiling. */
+  context?: number;
+  /**
+   * Force case sensitivity. Omit for smart-case, where an all-lowercase
+   * pattern matches case-insensitively and any uppercase makes it exact.
+   */
+  ignoreCase?: boolean;
+  /** Maximum matches to return. A backend may cap this lower. */
+  limit?: number;
+  /** Extra exclude globs, ADDED to the backend's defaults. Never removes one. */
+  exclude?: string[];
 }
 /**
  * Legacy file data format (v1).
@@ -905,16 +930,28 @@ declare function createFilesystemMiddleware(options?: FilesystemMiddlewareOption
     count: "count";
     files_with_matches: "files_with_matches";
   }>>>;
+  context: z.ZodDefault<z.ZodNullable<z.ZodOptional<z.ZodNumber>>>;
+  ignoreCase: z.ZodDefault<z.ZodNullable<z.ZodOptional<z.ZodBoolean>>>;
+  limit: z.ZodDefault<z.ZodNullable<z.ZodOptional<z.ZodNumber>>>;
+  exclude: z.ZodDefault<z.ZodNullable<z.ZodOptional<z.ZodArray<z.ZodString>>>>;
 }, z.core.$strip>, {
   pattern: string;
   path: string;
   glob: string | null;
   output_mode: "content" | "count" | "files_with_matches";
+  context: number | null;
+  ignoreCase: boolean | null;
+  limit: number | null;
+  exclude: string[] | null;
 }, {
   pattern: string;
   path?: string | undefined;
   glob?: string | null | undefined;
   output_mode?: "content" | "count" | "files_with_matches" | undefined;
+  context?: number | null | undefined;
+  ignoreCase?: boolean | null | undefined;
+  limit?: number | null | undefined;
+  exclude?: string[] | null | undefined;
 }, string | ToolMessage<_messages.MessageStructure<_messages.MessageToolSet>>, unknown, "grep"> | _langchain.DynamicStructuredTool<z.ZodObject<{
   command: z.ZodString;
 }, z.core.$strip>, {
@@ -3450,7 +3487,7 @@ declare class CompositeBackend implements BackendProtocolV2 {
   /**
    * Structured search results or error string for invalid input.
    */
-  grep(pattern: string, path?: string | null, glob?: string | null): Promise<GrepResult>;
+  grep(pattern: string, path?: string | null, glob?: string | null, opts?: GrepOptions): Promise<GrepResult>;
   /**
    * Structured glob matching returning FileInfo objects.
    */
@@ -3513,7 +3550,7 @@ declare class ContextHubBackend implements BackendProtocolV2 {
   private linkedEntries;
   private commitHash;
   constructor(identifier: string, options?: {
-    client?: Client;
+    client?: Client$1;
   });
   private static stripPrefix;
   private static toHubUnavailableError;
@@ -4041,16 +4078,28 @@ declare function createDeepAgent<TResponse extends SupportedResponseFormat = Sup
     count: "count";
     files_with_matches: "files_with_matches";
   }>>>;
+  context: import("zod").ZodDefault<import("zod").ZodNullable<import("zod").ZodOptional<import("zod").ZodNumber>>>;
+  ignoreCase: import("zod").ZodDefault<import("zod").ZodNullable<import("zod").ZodOptional<import("zod").ZodBoolean>>>;
+  limit: import("zod").ZodDefault<import("zod").ZodNullable<import("zod").ZodOptional<import("zod").ZodNumber>>>;
+  exclude: import("zod").ZodDefault<import("zod").ZodNullable<import("zod").ZodOptional<import("zod").ZodArray<import("zod").ZodString>>>>;
 }, import("zod/v4/core").$strip>, {
   pattern: string;
   path: string;
   glob: string | null;
   output_mode: "content" | "count" | "files_with_matches";
+  context: number | null;
+  ignoreCase: boolean | null;
+  limit: number | null;
+  exclude: string[] | null;
 }, {
   pattern: string;
   path?: string | undefined;
   glob?: string | null | undefined;
   output_mode?: "content" | "count" | "files_with_matches" | undefined;
+  context?: number | null | undefined;
+  ignoreCase?: boolean | null | undefined;
+  limit?: number | null | undefined;
+  exclude?: string[] | null | undefined;
 }, string | _messages.ToolMessage<_messages.MessageStructure<_messages.MessageToolSet>>, unknown, "grep"> | import("langchain").DynamicStructuredTool<import("zod").ZodObject<{
   command: import("zod").ZodString;
 }, import("zod/v4/core").$strip>, {
@@ -4112,5 +4161,5 @@ declare function createDeepAgent<TResponse extends SupportedResponseFormat = Sup
   }, import("zod/v4/core").$strip>>;
 }, import("zod/v4/core").$strip>, undefined, unknown, readonly (ServerTool | ClientTool)[], readonly []>, AgentMiddleware<undefined, undefined, unknown, readonly (ServerTool | ClientTool)[], readonly []>, ...TMiddleware, ...FlattenSubAgentMiddleware<TSubagents>], TTools, TSubagents, TStreamTransformers>>;
 //#endregion
-export { createAsyncSubAgentMiddleware as $, BackendRuntime as $t, findProjectRoot as A, BackendProtocolV1 as An, serializeProfile as At, InferDeepAgentSubagents as B, BASE_AGENT_PROMPT as Bt, parseSkillMetadata as C, StateAndStore as Cn, createSubAgentMiddleware as Ct, Settings as D, resolveBackend as Dn, generalPurposeSubagentConfigSchema as Dt, filesValue as E, isSandboxProtocol as En, HarnessProfileConfigData as Et, DeepAgent as F, HarnessProfileOptions as Ft, InferSubagentReactAgentType as G, FsToolName as Gt, InferStructuredResponse as H, SystemPromptConfig as Ht, DeepAgentTypeConfig as I, REQUIRED_MIDDLEWARE_NAMES as It, SupportedResponseFormat as J, FilesystemPermission as Jt, MergedDeepAgentState as K, createFilesystemMiddleware as Kt, DefaultDeepAgentTypeConfig as L, ConfigurationError as Lt, SubagentRunStream$1 as M, createHarnessProfile as Mt, AnySubAgent as N, GeneralPurposeSubagentConfig as Nt, SettingsOptions as O, BackendProtocolV2 as On, harnessProfileConfigSchema as Ot, CreateDeepAgentParams as P, HarnessProfile as Pt, AsyncTaskStatus as Q, BackendProtocol as Qt, ExtractSubAgentMiddleware as R, ConfigurationErrorCode as Rt, listSkills as S, SandboxListResponse as Sn, createSubAgent as St, createAgentMemoryMiddleware as T, isSandboxBackend as Tn, registerHarnessProfile as Tt, InferSubAgentMiddlewareStates as U, TASK_SYSTEM_PROMPT as Ut, InferDeepAgentType as V, EXECUTION_SYSTEM_PROMPT as Vt, InferSubagentByName as W, FilesystemMiddlewareOptions as Wt, AsyncSubAgentMiddlewareOptions as X, AnyBackendProtocol as Xt, AsyncSubAgent as Y, PermissionMode as Yt, AsyncTask as Z, BackendFactory as Zt, StoreBackendContext as _, SandboxError as _n, DEFAULT_SUBAGENT_PROMPT as _t, adaptBackendProtocol as a, FileInfo as an, MAX_SKILL_DESCRIPTION_LENGTH as at, ListSkillsOptions as b, SandboxInfo as bn, SubAgent as bt, LangSmithSandboxCreateOptions as c, GlobResult as cn, SkillMetadata$1 as ct, LocalShellBackend as d, LsResult as dn, MemoryMiddlewareOptions as dt, DeleteResult as en, isAsyncSubAgent as et, LocalShellBackendOptions as f, MaybePromise as fn, createMemoryMiddleware as ft, StoreBackend as g, SandboxDeleteOptions as gn, DEFAULT_GENERAL_PURPOSE_DESCRIPTION as gt, FilesystemBackend as h, SandboxBackendProtocol as hn, CompiledSubAgent as ht, LangSmithStartSandboxOptions as i, FileDownloadResponse as in, createCompletionCallbackMiddleware as it, DeepAgentRunStream as j, SandboxBackendProtocolV1 as jn, EMPTY_HARNESS_PROFILE as jt, createSettings as k, SandboxBackendProtocolV2 as kn, parseHarnessProfileConfig as kt, LangSmithSandboxOptions as l, GrepMatch as ln, SkillsMiddlewareOptions as lt, CompositeBackend as m, ReadResult as mn, createPatchToolCallsMiddleware as mt, LangSmithCaptureSnapshotOptions as n, ExecuteResponse as nn, createSummarizationMiddleware as nt, adaptSandboxProtocol as o, FileOperationError as on, MAX_SKILL_FILE_SIZE as ot, ContextHubBackend as p, ReadRawResult as pn, StateBackend as pt, ResolveDeepAgentTypeConfig as q, FilesystemOperation as qt, LangSmithSnapshot as r, FileData as rn, CompletionCallbackOptions as rt, LangSmithSandbox as s, FileUploadResponse as sn, MAX_SKILL_NAME_LENGTH as st, createDeepAgent as t, EditResult as tn, computeSummarizationDefaults as tt, BaseSandbox as u, GrepResult as un, createSkillsMiddleware as ut, StoreBackendNamespaceFactory as v, SandboxErrorCode as vn, GENERAL_PURPOSE_SUBAGENT as vt, AgentMemoryMiddlewareOptions as w, WriteResult as wn, getHarnessProfile as wt, SkillMetadata as x, SandboxListOptions as xn, SubAgentMiddlewareOptions as xt, StoreBackendOptions as y, SandboxGetOrCreateOptions as yn, SUBAGENT_RESPONSE_FORMAT_CONFIG_KEY as yt, FlattenSubAgentMiddleware as z, ASYNC_TASK_SYSTEM_PROMPT as zt };
-//# sourceMappingURL=agent-DnqhdGlE.d.cts.map
+export { createAsyncSubAgentMiddleware as $, BackendRuntime as $t, findProjectRoot as A, SandboxBackendProtocolV2 as An, serializeProfile as At, InferDeepAgentSubagents as B, BASE_AGENT_PROMPT as Bt, parseSkillMetadata as C, SandboxListResponse as Cn, createSubAgentMiddleware as Ct, Settings as D, isSandboxProtocol as Dn, generalPurposeSubagentConfigSchema as Dt, filesValue as E, isSandboxBackend as En, HarnessProfileConfigData as Et, DeepAgent as F, HarnessProfileOptions as Ft, InferSubagentReactAgentType as G, FsToolName as Gt, InferStructuredResponse as H, SystemPromptConfig as Ht, DeepAgentTypeConfig as I, REQUIRED_MIDDLEWARE_NAMES as It, SupportedResponseFormat as J, FilesystemPermission as Jt, MergedDeepAgentState as K, createFilesystemMiddleware as Kt, DefaultDeepAgentTypeConfig as L, ConfigurationError as Lt, SubagentRunStream$1 as M, SandboxBackendProtocolV1 as Mn, createHarnessProfile as Mt, AnySubAgent as N, GeneralPurposeSubagentConfig as Nt, SettingsOptions as O, resolveBackend as On, harnessProfileConfigSchema as Ot, CreateDeepAgentParams as P, HarnessProfile as Pt, AsyncTaskStatus as Q, BackendProtocol as Qt, ExtractSubAgentMiddleware as R, ConfigurationErrorCode as Rt, listSkills as S, SandboxListOptions as Sn, createSubAgent as St, createAgentMemoryMiddleware as T, WriteResult as Tn, registerHarnessProfile as Tt, InferSubAgentMiddlewareStates as U, TASK_SYSTEM_PROMPT as Ut, InferDeepAgentType as V, EXECUTION_SYSTEM_PROMPT as Vt, InferSubagentByName as W, FilesystemMiddlewareOptions as Wt, AsyncSubAgentMiddlewareOptions as X, AnyBackendProtocol as Xt, AsyncSubAgent as Y, PermissionMode as Yt, AsyncTask as Z, BackendFactory as Zt, StoreBackendContext as _, SandboxDeleteOptions as _n, DEFAULT_SUBAGENT_PROMPT as _t, adaptBackendProtocol as a, FileInfo as an, MAX_SKILL_DESCRIPTION_LENGTH as at, ListSkillsOptions as b, SandboxGetOrCreateOptions as bn, SubAgent as bt, LangSmithSandboxCreateOptions as c, GlobResult as cn, SkillMetadata$1 as ct, LocalShellBackend as d, GrepResult as dn, MemoryMiddlewareOptions as dt, DeleteResult as en, isAsyncSubAgent as et, LocalShellBackendOptions as f, LsResult as fn, createMemoryMiddleware as ft, StoreBackend as g, SandboxBackendProtocol as gn, DEFAULT_GENERAL_PURPOSE_DESCRIPTION as gt, FilesystemBackend as h, ReadResult as hn, CompiledSubAgent as ht, LangSmithStartSandboxOptions as i, FileDownloadResponse as in, createCompletionCallbackMiddleware as it, DeepAgentRunStream as j, BackendProtocolV1 as jn, EMPTY_HARNESS_PROFILE as jt, createSettings as k, BackendProtocolV2 as kn, parseHarnessProfileConfig as kt, LangSmithSandboxOptions as l, GrepMatch as ln, SkillsMiddlewareOptions as lt, CompositeBackend as m, ReadRawResult as mn, createPatchToolCallsMiddleware as mt, LangSmithCaptureSnapshotOptions as n, ExecuteResponse as nn, createSummarizationMiddleware as nt, adaptSandboxProtocol as o, FileOperationError as on, MAX_SKILL_FILE_SIZE as ot, ContextHubBackend as p, MaybePromise as pn, StateBackend as pt, ResolveDeepAgentTypeConfig as q, FilesystemOperation as qt, LangSmithSnapshot as r, FileData as rn, CompletionCallbackOptions as rt, LangSmithSandbox as s, FileUploadResponse as sn, MAX_SKILL_NAME_LENGTH as st, createDeepAgent as t, EditResult as tn, computeSummarizationDefaults as tt, BaseSandbox as u, GrepOptions as un, createSkillsMiddleware as ut, StoreBackendNamespaceFactory as v, SandboxError as vn, GENERAL_PURPOSE_SUBAGENT as vt, AgentMemoryMiddlewareOptions as w, StateAndStore as wn, getHarnessProfile as wt, SkillMetadata as x, SandboxInfo as xn, SubAgentMiddlewareOptions as xt, StoreBackendOptions as y, SandboxErrorCode as yn, SUBAGENT_RESPONSE_FORMAT_CONFIG_KEY as yt, FlattenSubAgentMiddleware as z, ASYNC_TASK_SYSTEM_PROMPT as zt };
+//# sourceMappingURL=agent-D8rZbcpa.d.ts.map

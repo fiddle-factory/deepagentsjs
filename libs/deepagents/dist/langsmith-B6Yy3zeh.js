@@ -420,7 +420,11 @@ function formatGrepResults(results, outputMode) {
 	const lines = [];
 	for (const filePath of Object.keys(results).sort()) {
 		lines.push(`${filePath}:`);
-		for (const [lineNum, line] of results[filePath]) lines.push(`  ${lineNum}: ${line}`);
+		for (const [lineNum, line] of results[filePath]) {
+			const [first, ...rest] = line.split("\n");
+			lines.push(`  ${lineNum}: ${first}`);
+			for (const extra of rest) lines.push(`     ${extra}`);
+		}
 	}
 	return lines.join("\n");
 }
@@ -572,8 +576,8 @@ function adaptBackendProtocol(backend) {
 			if (typeof result === "string") return { content: result };
 			return result;
 		},
-		async grep(pattern, path, glob) {
-			const result = await ("grep" in backend ? backend.grep(pattern, path, glob) : backend.grepRaw(pattern, path, glob));
+		async grep(pattern, path, glob, opts) {
+			const result = await ("grep" in backend ? backend.grep(pattern, path, glob, opts) : backend.grepRaw(pattern, path, glob));
 			if (Array.isArray(result)) return { matches: result };
 			if (typeof result === "string") return { error: result };
 			return result;
@@ -1170,11 +1174,11 @@ var CompositeBackend = class {
 	/**
 	* Structured search results or error string for invalid input.
 	*/
-	async grep(pattern, path = "/", glob = null) {
+	async grep(pattern, path = "/", glob = null, opts) {
 		const searchPath = path || "/";
 		for (const [routePrefix, backend] of this.sortedRoutes) if (this.isPathWithinRoute(searchPath, routePrefix)) {
 			const routeSearchPath = searchPath.substring(routePrefix.length - 1);
-			const raw = await backend.grep(pattern, routeSearchPath || "/", glob);
+			const raw = await backend.grep(pattern, routeSearchPath || "/", glob, opts);
 			if (raw.error) return raw;
 			return { matches: (raw.matches || []).map((m) => ({
 				...m,
@@ -1182,12 +1186,12 @@ var CompositeBackend = class {
 			})) };
 		}
 		const allMatches = [];
-		const rawDefault = await this.default.grep(pattern, searchPath, glob);
+		const rawDefault = await this.default.grep(pattern, searchPath, glob, opts);
 		if (rawDefault.error) return rawDefault;
 		allMatches.push(...rawDefault.matches || []);
 		for (const [routePrefix, backend] of Object.entries(this.routes)) {
 			if (!this.isRouteUnderPath(routePrefix, searchPath)) continue;
-			const raw = await backend.grep(pattern, "/", glob);
+			const raw = await backend.grep(pattern, "/", glob, opts);
 			if (raw.error) return raw;
 			const matches = (raw.matches || []).map((m) => ({
 				...m,
@@ -1914,8 +1918,15 @@ function createGrepTool(backend, options) {
 		const permissionError = checkPermission(permissions, "read", input.path ?? "/");
 		if (permissionError !== void 0) return toolError(runtime, "grep", permissionError);
 		const resolvedBackend = await resolveBackend(backend, runtime);
-		const { pattern, path = "/", glob = null, output_mode = "content" } = input;
-		const result = await resolvedBackend.grep(pattern, path, glob);
+		const { pattern, path = "/", glob = null, output_mode = "content", context, ignoreCase, limit, exclude } = input;
+		const wantsLines = output_mode === "content";
+		const unset = (v) => v ?? void 0;
+		const result = await resolvedBackend.grep(pattern, path, glob, {
+			context: wantsLines ? unset(context) : 0,
+			ignoreCase: unset(ignoreCase),
+			limit: unset(limit),
+			exclude: unset(exclude)
+		});
 		if (result.error) return result.error;
 		const matches = filterByPermissions(result.matches ?? [], permissions, "read", (m) => m.path);
 		if (matches.length === 0) return `No matches found for pattern '${pattern}'`;
@@ -1932,7 +1943,11 @@ function createGrepTool(backend, options) {
 				"files_with_matches",
 				"content",
 				"count"
-			]).optional().default("content").describe("Output format: 'files_with_matches' lists matching file paths, 'content' shows matching lines (default), 'count' shows match counts per file")
+			]).optional().default("content").describe("Output format: 'files_with_matches' lists matching file paths, 'content' shows each match with surrounding context lines (default), 'count' shows match counts per file. 'context' applies to 'content' only."),
+			context: z.number().int().min(0).optional().nullable().default(null).describe("Lines of context around each match in 'content' mode (default: 2). Use 0 for the matching line alone. Ignored by the other output modes."),
+			ignoreCase: z.boolean().optional().nullable().default(null).describe("Force case-insensitive (true) or case-sensitive (false) search. Omit for smart-case: an all-lowercase pattern matches case-insensitively."),
+			limit: z.number().int().min(1).optional().nullable().default(null).describe("Maximum matches to return (default: 100). The backend may cap this lower."),
+			exclude: z.array(z.string()).optional().nullable().default(null).describe("Additional glob patterns to exclude, e.g. ['**/*.test.ts']. These ADD to the backend's built-in excludes; they cannot remove one.")
 		})
 	});
 }
@@ -7497,4 +7512,4 @@ var LangSmithSandbox = class LangSmithSandbox extends BaseSandbox {
 //#endregion
 export { filesValue as A, StateBackend as B, createSummarizationMiddleware as C, MAX_SKILL_NAME_LENGTH as D, MAX_SKILL_FILE_SIZE as E, SUBAGENT_RESPONSE_FORMAT_CONFIG_KEY as F, adaptBackendProtocol as G, isSandboxBackend as H, createSubAgent as I, getMimeType as J, adaptSandboxProtocol as K, createSubAgentMiddleware as L, DEFAULT_GENERAL_PURPOSE_DESCRIPTION as M, DEFAULT_SUBAGENT_PROMPT as N, createSkillsMiddleware as O, GENERAL_PURPOSE_SUBAGENT as P, createFilesystemMiddleware as R, computeSummarizationDefaults as S, MAX_SKILL_DESCRIPTION_LENGTH as T, isSandboxProtocol as U, SandboxError as V, resolveBackend as W, performStringReplacement as X, isTextMimeType as Y, createHarnessProfile as _, ASYNC_TASK_SYSTEM_PROMPT as a, createAsyncSubAgentMiddleware as b, TASK_SYSTEM_PROMPT as c, registerHarnessProfile as d, generalPurposeSubagentConfigSchema as f, EMPTY_HARNESS_PROFILE as g, serializeProfile as h, StoreBackend as i, createPatchToolCallsMiddleware as j, createMemoryMiddleware as k, createDeepAgent as l, parseHarnessProfileConfig as m, BaseSandbox as n, BASE_AGENT_PROMPT as o, harnessProfileConfigSchema as p, checkEmptyContent as q, ContextHubBackend as r, EXECUTION_SYSTEM_PROMPT as s, LangSmithSandbox as t, getHarnessProfile as u, REQUIRED_MIDDLEWARE_NAMES as v, createCompletionCallbackMiddleware as w, isAsyncSubAgent as x, ConfigurationError as y, CompositeBackend as z };
 
-//# sourceMappingURL=langsmith-BUiB55bK.js.map
+//# sourceMappingURL=langsmith-B6Yy3zeh.js.map

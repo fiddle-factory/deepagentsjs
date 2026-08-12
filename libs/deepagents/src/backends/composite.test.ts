@@ -366,7 +366,10 @@ describe("CompositeBackend", () => {
     expect(paths).toContain("/workspace/index.ts");
     expect(paths).toContain("/workspace/memories/note.md");
     expect(outsideSpy).not.toHaveBeenCalled();
-    expect(insideSpy).toHaveBeenCalledWith("index", "/", "**/*");
+    // The 4th argument is the search-options object, forwarded verbatim to
+    // routed backends. The behaviour this test guards — fan-out scoping — is
+    // unchanged; only the arity moved.
+    expect(insideSpy).toHaveBeenCalledWith("index", "/", "**/*", undefined);
   });
 
   it("glob should only fan out to routed backends mounted under the search path", async () => {

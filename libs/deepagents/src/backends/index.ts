@@ -17,6 +17,7 @@ export type {
   GrepMatch,
   ReadResult,
   ReadRawResult,
+  GrepOptions,
   GrepResult,
   LsResult,
   GlobResult,
