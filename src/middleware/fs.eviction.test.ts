@@ -564,6 +564,92 @@ describe("evicted tool result readback", () => {
     vi.clearAllMocks();
   });
 
+  it("keeps a tool result inline when only its image block is large", async () => {
+    const state: { messages: unknown[]; files: Record<string, FileData> } = {
+      messages: [],
+      files: {},
+    };
+    vi.mocked(getCurrentTaskInput).mockReturnValue(state);
+
+    const middleware = createFilesystemMiddleware({
+      backend: () => new StateBackend({ state, store: undefined }),
+      toolTokenLimitBeforeEvict: 100, // 400 chars of TEXT
+    });
+
+    // A screenshot-shaped result: tiny text note + huge inline image. The
+    // base64 must not count toward the text limit — it is the payload.
+    const imageBlock = {
+      type: "image_url",
+      image_url: { url: `data:image/png;base64,${"A".repeat(50_000)}` },
+    };
+    const toolMessage = new ToolMessage({
+      content: [{ type: "text", text: "Screenshot captured." }, imageBlock] as never,
+      tool_call_id: "call_img_small_text",
+      name: "browser",
+    });
+
+    const wrapped = await (middleware as any).wrapToolCall(
+      {
+        toolCall: { id: "call_img_small_text", name: "browser", args: {} },
+        state,
+        runtime: {},
+      },
+      async () => toolMessage,
+    );
+
+    // No eviction: the message passes through untouched, image intact.
+    expect(isCommand(wrapped)).toBe(false);
+    const content = (wrapped as ToolMessage).content as Array<{ type: string }>;
+    expect(content.some((b) => b.type === "image_url")).toBe(true);
+    expect(content.some((b) => b.type === "text")).toBe(true);
+  });
+
+  it("evicts oversized text but keeps the image block inline", async () => {
+    const state: { messages: unknown[]; files: Record<string, FileData> } = {
+      messages: [],
+      files: {},
+    };
+    vi.mocked(getCurrentTaskInput).mockReturnValue(state);
+
+    const middleware = createFilesystemMiddleware({
+      backend: () => new StateBackend({ state, store: undefined }),
+      toolTokenLimitBeforeEvict: 100, // 400 chars of TEXT
+    });
+
+    const imageBlock = {
+      type: "image_url",
+      image_url: { url: `data:image/png;base64,${"A".repeat(50_000)}` },
+    };
+    const bigText = "console noise line\n".repeat(200);
+    const toolMessage = new ToolMessage({
+      content: [{ type: "text", text: bigText }, imageBlock] as never,
+      tool_call_id: "call_img_big_text",
+      name: "browser",
+    });
+
+    const wrapped = await (middleware as any).wrapToolCall(
+      {
+        toolCall: { id: "call_img_big_text", name: "browser", args: {} },
+        state,
+        runtime: {},
+      },
+      async () => toolMessage,
+    );
+
+    expect(isCommand(wrapped)).toBe(true);
+    const update = (wrapped as any).update;
+    const message = update.messages[0] as ToolMessage;
+    const content = message.content as Array<Record<string, unknown>>;
+    // The eviction note replaced the text, the image survived inline.
+    expect(content.some((b) => b.type === "image_url")).toBe(true);
+    const textBlock = content.find((b) => b.type === "text") as { text: string };
+    expect(textBlock.text).toContain("Tool result too large");
+    // The evicted file holds the TEXT, not the base64.
+    const evicted = update.files["/large_tool_results/call_img_big_text.txt"];
+    expect(evicted).toBeDefined();
+    expect(evicted.content ?? evicted.data ?? "").not.toContain("AAAAA");
+  });
+
   it("should save large plain-text tool results with a text extension", async () => {
     const state: { messages: unknown[]; files: Record<string, FileData> } = {
       messages: [],
