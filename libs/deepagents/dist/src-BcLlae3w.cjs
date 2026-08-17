@@ -1,14 +1,22 @@
-import { J as getMimeType, V as SandboxError, X as performStringReplacement, Y as isTextMimeType, q as checkEmptyContent } from "./langsmith-B6Yy3zeh.js";
-import { createMiddleware } from "langchain";
-import micromatch from "micromatch";
-import { z } from "zod";
-import yaml from "yaml";
-import fs from "node:fs";
-import path from "node:path";
-import os from "node:os";
-import fs$1 from "node:fs/promises";
-import cp, { spawn } from "node:child_process";
-import fg from "fast-glob";
+const require_langsmith = require("./langsmith-BoiL5ESf.cjs");
+let langchain = require("langchain");
+let micromatch = require("micromatch");
+micromatch = require_langsmith.__toESM(micromatch, 1);
+let zod = require("zod");
+let yaml = require("yaml");
+yaml = require_langsmith.__toESM(yaml, 1);
+let node_fs = require("node:fs");
+node_fs = require_langsmith.__toESM(node_fs, 1);
+let node_path = require("node:path");
+node_path = require_langsmith.__toESM(node_path, 1);
+let node_os = require("node:os");
+node_os = require_langsmith.__toESM(node_os, 1);
+let node_fs_promises = require("node:fs/promises");
+node_fs_promises = require_langsmith.__toESM(node_fs_promises, 1);
+let node_child_process = require("node:child_process");
+node_child_process = require_langsmith.__toESM(node_child_process, 1);
+let fast_glob = require("fast-glob");
+fast_glob = require_langsmith.__toESM(fast_glob, 1);
 //#region src/config.ts
 /**
 * Configuration and settings for deepagents.
@@ -26,14 +34,14 @@ import fg from "fast-glob";
 * @returns Path to the project root if found, null otherwise.
 */
 function findProjectRoot(startPath) {
-	let current = path.resolve(startPath || process.cwd());
-	while (current !== path.dirname(current)) {
-		const gitDir = path.join(current, ".git");
-		if (fs.existsSync(gitDir)) return current;
-		current = path.dirname(current);
+	let current = node_path.default.resolve(startPath || process.cwd());
+	while (current !== node_path.default.dirname(current)) {
+		const gitDir = node_path.default.join(current, ".git");
+		if (node_fs.default.existsSync(gitDir)) return current;
+		current = node_path.default.dirname(current);
 	}
-	const rootGitDir = path.join(current, ".git");
-	if (fs.existsSync(rootGitDir)) return current;
+	const rootGitDir = node_path.default.join(current, ".git");
+	if (node_fs.default.existsSync(rootGitDir)) return current;
 	return null;
 }
 /**
@@ -54,49 +62,49 @@ function isValidAgentName(agentName) {
 */
 function createSettings(options = {}) {
 	const projectRoot = findProjectRoot(options.startPath);
-	const userDeepagentsDir = path.join(os.homedir(), ".deepagents");
+	const userDeepagentsDir = node_path.default.join(node_os.default.homedir(), ".deepagents");
 	return {
 		projectRoot,
 		userDeepagentsDir,
 		hasProject: projectRoot !== null,
 		getAgentDir(agentName) {
 			if (!isValidAgentName(agentName)) throw new Error(`Invalid agent name: ${JSON.stringify(agentName)}. Agent names can only contain letters, numbers, hyphens, underscores, and spaces.`);
-			return path.join(userDeepagentsDir, agentName);
+			return node_path.default.join(userDeepagentsDir, agentName);
 		},
 		ensureAgentDir(agentName) {
 			const agentDir = this.getAgentDir(agentName);
-			fs.mkdirSync(agentDir, { recursive: true });
+			node_fs.default.mkdirSync(agentDir, { recursive: true });
 			return agentDir;
 		},
 		getUserAgentMdPath(agentName) {
-			return path.join(this.getAgentDir(agentName), "agent.md");
+			return node_path.default.join(this.getAgentDir(agentName), "agent.md");
 		},
 		getProjectAgentMdPath() {
 			if (!projectRoot) return null;
-			return path.join(projectRoot, ".deepagents", "agent.md");
+			return node_path.default.join(projectRoot, ".deepagents", "agent.md");
 		},
 		getUserSkillsDir(agentName) {
-			return path.join(this.getAgentDir(agentName), "skills");
+			return node_path.default.join(this.getAgentDir(agentName), "skills");
 		},
 		ensureUserSkillsDir(agentName) {
 			const skillsDir = this.getUserSkillsDir(agentName);
-			fs.mkdirSync(skillsDir, { recursive: true });
+			node_fs.default.mkdirSync(skillsDir, { recursive: true });
 			return skillsDir;
 		},
 		getProjectSkillsDir() {
 			if (!projectRoot) return null;
-			return path.join(projectRoot, ".deepagents", "skills");
+			return node_path.default.join(projectRoot, ".deepagents", "skills");
 		},
 		ensureProjectSkillsDir() {
 			const skillsDir = this.getProjectSkillsDir();
 			if (!skillsDir) return null;
-			fs.mkdirSync(skillsDir, { recursive: true });
+			node_fs.default.mkdirSync(skillsDir, { recursive: true });
 			return skillsDir;
 		},
 		ensureProjectDeepagentsDir() {
 			if (!projectRoot) return null;
-			const deepagentsDir = path.join(projectRoot, ".deepagents");
-			fs.mkdirSync(deepagentsDir, { recursive: true });
+			const deepagentsDir = node_path.default.join(projectRoot, ".deepagents");
+			node_fs.default.mkdirSync(deepagentsDir, { recursive: true });
 			return deepagentsDir;
 		}
 	};
@@ -138,11 +146,11 @@ function createSettings(options = {}) {
 /**
 * State schema for agent memory middleware.
 */
-const AgentMemoryStateSchema = z.object({
+const AgentMemoryStateSchema = zod.z.object({
 	/** Personal preferences from ~/.deepagents/{agent}/ (applies everywhere) */
-	userMemory: z.string().optional(),
+	userMemory: zod.z.string().optional(),
 	/** Project-specific context (loaded from project root) */
-	projectMemory: z.string().optional()
+	projectMemory: zod.z.string().optional()
 });
 /**
 * Default template for memory injection.
@@ -294,21 +302,21 @@ function createAgentMemoryMiddleware(options) {
 	const projectMemoryInfo = projectRoot ? `\`${projectRoot}\` (detected)` : "None (not in a git project)";
 	const projectDeepagentsDir = projectRoot ? `${projectRoot}/.deepagents` : "[project-root]/.deepagents (not in a project)";
 	const template = systemPromptTemplate || DEFAULT_MEMORY_TEMPLATE;
-	return createMiddleware({
+	return (0, langchain.createMiddleware)({
 		name: "AgentMemoryMiddleware",
 		stateSchema: AgentMemoryStateSchema,
 		beforeAgent(state) {
 			const result = {};
 			if (!("userMemory" in state)) {
 				const userPath = settings.getUserAgentMdPath(assistantId);
-				if (fs.existsSync(userPath)) try {
-					result.userMemory = fs.readFileSync(userPath, "utf-8");
+				if (node_fs.default.existsSync(userPath)) try {
+					result.userMemory = node_fs.default.readFileSync(userPath, "utf-8");
 				} catch {}
 			}
 			if (!("projectMemory" in state)) {
 				const projectPath = settings.getProjectAgentMdPath();
-				if (projectPath && fs.existsSync(projectPath)) try {
-					result.projectMemory = fs.readFileSync(projectPath, "utf-8");
+				if (projectPath && node_fs.default.existsSync(projectPath)) try {
+					result.projectMemory = node_fs.default.readFileSync(projectPath, "utf-8");
 				} catch {}
 			}
 			return Object.keys(result).length > 0 ? result : void 0;
@@ -347,9 +355,9 @@ const FRONTMATTER_PATTERN = /^---\s*\n([\s\S]*?)\n---\s*\n/;
 */
 function isSafePath(targetPath, baseDir) {
 	try {
-		const resolvedPath = fs.realpathSync(targetPath);
-		const resolvedBase = fs.realpathSync(baseDir);
-		return resolvedPath.startsWith(resolvedBase + path.sep) || resolvedPath === resolvedBase;
+		const resolvedPath = node_fs.default.realpathSync(targetPath);
+		const resolvedBase = node_fs.default.realpathSync(baseDir);
+		return resolvedPath.startsWith(resolvedBase + node_path.default.sep) || resolvedPath === resolvedBase;
 	} catch {
 		return false;
 	}
@@ -397,7 +405,7 @@ function parseFrontmatter(content) {
 	const match = content.match(FRONTMATTER_PATTERN);
 	if (!match) return null;
 	try {
-		const parsed = yaml.parse(match[1]);
+		const parsed = yaml.default.parse(match[1]);
 		return typeof parsed === "object" && parsed !== null ? parsed : null;
 	} catch {
 		return null;
@@ -412,12 +420,12 @@ function parseFrontmatter(content) {
 */
 function parseSkillMetadata(skillMdPath, source) {
 	try {
-		const stats = fs.statSync(skillMdPath);
+		const stats = node_fs.default.statSync(skillMdPath);
 		if (stats.size > 10485760) {
 			console.warn(`Skipping ${skillMdPath}: file too large (${stats.size} bytes)`);
 			return null;
 		}
-		const frontmatter = parseFrontmatter(fs.readFileSync(skillMdPath, "utf-8"));
+		const frontmatter = parseFrontmatter(node_fs.default.readFileSync(skillMdPath, "utf-8"));
 		if (!frontmatter) {
 			console.warn(`Skipping ${skillMdPath}: no valid YAML frontmatter found`);
 			return null;
@@ -428,7 +436,7 @@ function parseSkillMetadata(skillMdPath, source) {
 			console.warn(`Skipping ${skillMdPath}: missing required 'name' or 'description'`);
 			return null;
 		}
-		const directoryName = path.basename(path.dirname(skillMdPath));
+		const directoryName = node_path.default.basename(node_path.default.dirname(skillMdPath));
 		const validation = validateSkillName(String(name), directoryName);
 		if (!validation.valid) console.warn(`Skill '${name}' in ${skillMdPath} does not follow Agent Skills spec: ${validation.error}. Consider renaming to be spec-compliant.`);
 		let descriptionStr = String(description);
@@ -471,27 +479,27 @@ function parseSkillMetadata(skillMdPath, source) {
 * @returns List of skill metadata
 */
 function listSkillsFromDir(skillsDir, source) {
-	const expandedDir = skillsDir.startsWith("~") ? path.join(process.env.HOME || process.env.USERPROFILE || "", skillsDir.slice(1)) : skillsDir;
-	if (!fs.existsSync(expandedDir)) return [];
+	const expandedDir = skillsDir.startsWith("~") ? node_path.default.join(process.env.HOME || process.env.USERPROFILE || "", skillsDir.slice(1)) : skillsDir;
+	if (!node_fs.default.existsSync(expandedDir)) return [];
 	let resolvedBase;
 	try {
-		resolvedBase = fs.realpathSync(expandedDir);
+		resolvedBase = node_fs.default.realpathSync(expandedDir);
 	} catch {
 		return [];
 	}
 	const skills = [];
 	let entries;
 	try {
-		entries = fs.readdirSync(resolvedBase, { withFileTypes: true });
+		entries = node_fs.default.readdirSync(resolvedBase, { withFileTypes: true });
 	} catch {
 		return [];
 	}
 	for (const entry of entries) {
-		const skillDir = path.join(resolvedBase, entry.name);
+		const skillDir = node_path.default.join(resolvedBase, entry.name);
 		if (!isSafePath(skillDir, resolvedBase)) continue;
 		if (!entry.isDirectory()) continue;
-		const skillMdPath = path.join(skillDir, "SKILL.md");
-		if (!fs.existsSync(skillMdPath)) continue;
+		const skillMdPath = node_path.default.join(skillDir, "SKILL.md");
+		if (!node_fs.default.existsSync(skillMdPath)) continue;
 		if (!isSafePath(skillMdPath, resolvedBase)) continue;
 		const metadata = parseSkillMetadata(skillMdPath, source);
 		if (metadata) skills.push(metadata);
@@ -531,7 +539,7 @@ function listSkills(options) {
 * - Ripgrep-powered grep with literal (fixed-string) search, plus substring fallback
 *   and optional glob include filtering, while preserving virtual path behavior
 */
-const SUPPORTS_NOFOLLOW = fs.constants.O_NOFOLLOW !== void 0;
+const SUPPORTS_NOFOLLOW = node_fs.default.constants.O_NOFOLLOW !== void 0;
 function getErrorMessage(error) {
 	if (typeof error === "object" && error !== null && "message" in error && typeof error.message === "string") return error.message;
 	return String(error);
@@ -552,7 +560,7 @@ var FilesystemBackend = class {
 	maxFileSizeBytes;
 	constructor(options = {}) {
 		const { rootDir, virtualMode = false, maxFileSizeMb = 10 } = options;
-		this.cwd = rootDir ? path.resolve(rootDir) : process.cwd();
+		this.cwd = rootDir ? node_path.default.resolve(rootDir) : process.cwd();
 		this.virtualMode = virtualMode;
 		this.maxFileSizeBytes = maxFileSizeMb * 1024 * 1024;
 	}
@@ -572,13 +580,13 @@ var FilesystemBackend = class {
 		if (this.virtualMode) {
 			const vpath = key.startsWith("/") ? key : "/" + key;
 			if (vpath.includes("..") || vpath.startsWith("~")) throw new Error("Path traversal not allowed");
-			const full = path.resolve(this.cwd, vpath.substring(1));
-			const relative = path.relative(this.cwd, full);
-			if (relative.startsWith("..") || path.isAbsolute(relative)) throw new Error(`Path: ${full} outside root directory: ${this.cwd}`);
+			const full = node_path.default.resolve(this.cwd, vpath.substring(1));
+			const relative = node_path.default.relative(this.cwd, full);
+			if (relative.startsWith("..") || node_path.default.isAbsolute(relative)) throw new Error(`Path: ${full} outside root directory: ${this.cwd}`);
 			return full;
 		}
-		if (path.isAbsolute(key)) return key;
-		return path.resolve(this.cwd, key);
+		if (node_path.default.isAbsolute(key)) return key;
+		return node_path.default.resolve(this.cwd, key);
 	}
 	/**
 	* Resolve the concrete path to unlink for a virtual delete operation.
@@ -590,17 +598,17 @@ var FilesystemBackend = class {
 	*/
 	async resolveDeletePath(resolvedPath, filePath) {
 		if (!this.virtualMode) return resolvedPath;
-		const segments = path.relative(this.cwd, resolvedPath).split(path.sep).filter(Boolean);
+		const segments = node_path.default.relative(this.cwd, resolvedPath).split(node_path.default.sep).filter(Boolean);
 		let current = this.cwd;
 		for (const segment of segments.slice(0, -1)) {
-			current = path.join(current, segment);
-			if ((await fs$1.lstat(current)).isSymbolicLink()) throw new Error(`Symlink parent not allowed: ${filePath}`);
+			current = node_path.default.join(current, segment);
+			if ((await node_fs_promises.default.lstat(current)).isSymbolicLink()) throw new Error(`Symlink parent not allowed: ${filePath}`);
 		}
-		const realRoot = await fs$1.realpath(this.cwd);
-		const realParent = await fs$1.realpath(path.dirname(resolvedPath));
-		const realRelative = path.relative(realRoot, realParent);
-		if (realRelative.startsWith("..") || path.isAbsolute(realRelative)) throw new Error(`Path '${filePath}' resolves outside root directory`);
-		return path.join(realParent, path.basename(resolvedPath));
+		const realRoot = await node_fs_promises.default.realpath(this.cwd);
+		const realParent = await node_fs_promises.default.realpath(node_path.default.dirname(resolvedPath));
+		const realRelative = node_path.default.relative(realRoot, realParent);
+		if (realRelative.startsWith("..") || node_path.default.isAbsolute(realRelative)) throw new Error(`Path '${filePath}' resolves outside root directory`);
+		return node_path.default.join(realParent, node_path.default.basename(resolvedPath));
 	}
 	/**
 	* List files and directories in the specified directory (non-recursive).
@@ -612,14 +620,14 @@ var FilesystemBackend = class {
 	async ls(dirPath) {
 		try {
 			const resolvedPath = this.resolvePath(dirPath);
-			if (!(await fs$1.stat(resolvedPath)).isDirectory()) return { files: [] };
-			const entries = await fs$1.readdir(resolvedPath, { withFileTypes: true });
+			if (!(await node_fs_promises.default.stat(resolvedPath)).isDirectory()) return { files: [] };
+			const entries = await node_fs_promises.default.readdir(resolvedPath, { withFileTypes: true });
 			const results = [];
-			const cwdStr = this.cwd.endsWith(path.sep) ? this.cwd : this.cwd + path.sep;
+			const cwdStr = this.cwd.endsWith(node_path.default.sep) ? this.cwd : this.cwd + node_path.default.sep;
 			for (const entry of entries) {
-				const fullPath = path.join(resolvedPath, entry.name);
+				const fullPath = node_path.default.join(resolvedPath, entry.name);
 				try {
-					const entryStat = await fs$1.stat(fullPath);
+					const entryStat = await node_fs_promises.default.stat(fullPath);
 					const isFile = entryStat.isFile();
 					const isDir = entryStat.isDirectory();
 					if (!this.virtualMode) {
@@ -630,7 +638,7 @@ var FilesystemBackend = class {
 							modified_at: entryStat.mtime.toISOString()
 						});
 						else if (isDir) results.push({
-							path: fullPath + path.sep,
+							path: fullPath + node_path.default.sep,
 							is_dir: true,
 							size: 0,
 							modified_at: entryStat.mtime.toISOString()
@@ -640,7 +648,7 @@ var FilesystemBackend = class {
 						if (fullPath.startsWith(cwdStr)) relativePath = fullPath.substring(cwdStr.length);
 						else if (fullPath.startsWith(this.cwd)) relativePath = fullPath.substring(this.cwd.length).replace(/^[/\\]/, "");
 						else relativePath = fullPath;
-						relativePath = relativePath.split(path.sep).join("/");
+						relativePath = relativePath.split(node_path.default.sep).join("/");
 						const virtPath = "/" + relativePath;
 						if (isFile) results.push({
 							path: virtPath,
@@ -676,12 +684,12 @@ var FilesystemBackend = class {
 	async read(filePath, offset = 0, limit = 500) {
 		try {
 			const resolvedPath = this.resolvePath(filePath);
-			const mimeType = getMimeType(filePath);
-			const isBinary = !isTextMimeType(mimeType);
+			const mimeType = require_langsmith.getMimeType(filePath);
+			const isBinary = !require_langsmith.isTextMimeType(mimeType);
 			let content;
 			if (SUPPORTS_NOFOLLOW) {
-				if (!(await fs$1.stat(resolvedPath)).isFile()) return { error: `File '${filePath}' not found` };
-				const fd = await fs$1.open(resolvedPath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+				if (!(await node_fs_promises.default.stat(resolvedPath)).isFile()) return { error: `File '${filePath}' not found` };
+				const fd = await node_fs_promises.default.open(resolvedPath, node_fs.default.constants.O_RDONLY | node_fs.default.constants.O_NOFOLLOW);
 				try {
 					if (isBinary) {
 						const buffer = await fd.readFile();
@@ -695,19 +703,19 @@ var FilesystemBackend = class {
 					await fd.close();
 				}
 			} else {
-				const stat = await fs$1.lstat(resolvedPath);
+				const stat = await node_fs_promises.default.lstat(resolvedPath);
 				if (stat.isSymbolicLink()) return { error: `Symlinks are not allowed: ${filePath}` };
 				if (!stat.isFile()) return { error: `File '${filePath}' not found` };
 				if (isBinary) {
-					const buffer = await fs$1.readFile(resolvedPath);
+					const buffer = await node_fs_promises.default.readFile(resolvedPath);
 					return {
 						content: new Uint8Array(buffer),
 						mimeType
 					};
 				}
-				content = await fs$1.readFile(resolvedPath, "utf-8");
+				content = await node_fs_promises.default.readFile(resolvedPath, "utf-8");
 			}
-			const emptyMsg = checkEmptyContent(content);
+			const emptyMsg = require_langsmith.checkEmptyContent(content);
 			if (emptyMsg) return {
 				content: emptyMsg,
 				mimeType
@@ -732,14 +740,14 @@ var FilesystemBackend = class {
 	*/
 	async readRaw(filePath) {
 		const resolvedPath = this.resolvePath(filePath);
-		const mimeType = getMimeType(filePath);
-		const isBinary = !isTextMimeType(mimeType);
+		const mimeType = require_langsmith.getMimeType(filePath);
+		const isBinary = !require_langsmith.isTextMimeType(mimeType);
 		let content;
 		let stat;
 		if (SUPPORTS_NOFOLLOW) {
-			stat = await fs$1.stat(resolvedPath);
+			stat = await node_fs_promises.default.stat(resolvedPath);
 			if (!stat.isFile()) return { error: `File '${filePath}' not found` };
-			const fd = await fs$1.open(resolvedPath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+			const fd = await node_fs_promises.default.open(resolvedPath, node_fs.default.constants.O_RDONLY | node_fs.default.constants.O_NOFOLLOW);
 			try {
 				if (isBinary) {
 					const buffer = await fd.readFile();
@@ -755,11 +763,11 @@ var FilesystemBackend = class {
 				await fd.close();
 			}
 		} else {
-			stat = await fs$1.lstat(resolvedPath);
+			stat = await node_fs_promises.default.lstat(resolvedPath);
 			if (stat.isSymbolicLink()) return { error: `Symlinks are not allowed: ${filePath}` };
 			if (!stat.isFile()) return { error: `File '${filePath}' not found` };
 			if (isBinary) {
-				const buffer = await fs$1.readFile(resolvedPath);
+				const buffer = await node_fs_promises.default.readFile(resolvedPath);
 				return { data: {
 					content: new Uint8Array(buffer),
 					mimeType,
@@ -767,7 +775,7 @@ var FilesystemBackend = class {
 					modified_at: stat.mtime.toISOString()
 				} };
 			}
-			content = await fs$1.readFile(resolvedPath, "utf-8");
+			content = await node_fs_promises.default.readFile(resolvedPath, "utf-8");
 		}
 		return { data: {
 			content,
@@ -783,14 +791,14 @@ var FilesystemBackend = class {
 	async write(filePath, content) {
 		try {
 			const resolvedPath = this.resolvePath(filePath);
-			const isBinary = !isTextMimeType(getMimeType(filePath));
+			const isBinary = !require_langsmith.isTextMimeType(require_langsmith.getMimeType(filePath));
 			try {
-				if ((await fs$1.lstat(resolvedPath)).isSymbolicLink()) return { error: `Cannot write to ${filePath} because it is a symlink. Symlinks are not allowed.` };
+				if ((await node_fs_promises.default.lstat(resolvedPath)).isSymbolicLink()) return { error: `Cannot write to ${filePath} because it is a symlink. Symlinks are not allowed.` };
 			} catch {}
-			await fs$1.mkdir(path.dirname(resolvedPath), { recursive: true });
+			await node_fs_promises.default.mkdir(node_path.default.dirname(resolvedPath), { recursive: true });
 			if (SUPPORTS_NOFOLLOW) {
-				const flags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_TRUNC | fs.constants.O_NOFOLLOW;
-				const fd = await fs$1.open(resolvedPath, flags, 420);
+				const flags = node_fs.default.constants.O_WRONLY | node_fs.default.constants.O_CREAT | node_fs.default.constants.O_TRUNC | node_fs.default.constants.O_NOFOLLOW;
+				const fd = await node_fs_promises.default.open(resolvedPath, flags, 420);
 				try {
 					if (isBinary) {
 						const buffer = Buffer.from(content, "base64");
@@ -801,8 +809,8 @@ var FilesystemBackend = class {
 				}
 			} else if (isBinary) {
 				const buffer = Buffer.from(content, "base64");
-				await fs$1.writeFile(resolvedPath, buffer);
-			} else await fs$1.writeFile(resolvedPath, content, "utf-8");
+				await node_fs_promises.default.writeFile(resolvedPath, buffer);
+			} else await node_fs_promises.default.writeFile(resolvedPath, content, "utf-8");
 			return {
 				path: filePath,
 				filesUpdate: null
@@ -820,31 +828,31 @@ var FilesystemBackend = class {
 			const resolvedPath = this.resolvePath(filePath);
 			let content;
 			if (SUPPORTS_NOFOLLOW) {
-				if (!(await fs$1.stat(resolvedPath)).isFile()) return { error: `Error: File '${filePath}' not found` };
-				const fd = await fs$1.open(resolvedPath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+				if (!(await node_fs_promises.default.stat(resolvedPath)).isFile()) return { error: `Error: File '${filePath}' not found` };
+				const fd = await node_fs_promises.default.open(resolvedPath, node_fs.default.constants.O_RDONLY | node_fs.default.constants.O_NOFOLLOW);
 				try {
 					content = await fd.readFile({ encoding: "utf-8" });
 				} finally {
 					await fd.close();
 				}
 			} else {
-				const stat = await fs$1.lstat(resolvedPath);
+				const stat = await node_fs_promises.default.lstat(resolvedPath);
 				if (stat.isSymbolicLink()) return { error: `Error: Symlinks are not allowed: ${filePath}` };
 				if (!stat.isFile()) return { error: `Error: File '${filePath}' not found` };
-				content = await fs$1.readFile(resolvedPath, "utf-8");
+				content = await node_fs_promises.default.readFile(resolvedPath, "utf-8");
 			}
-			const result = performStringReplacement(content, oldString, newString, replaceAll);
+			const result = require_langsmith.performStringReplacement(content, oldString, newString, replaceAll);
 			if (typeof result === "string") return { error: result };
 			const [newContent, occurrences] = result;
 			if (SUPPORTS_NOFOLLOW) {
-				const flags = fs.constants.O_WRONLY | fs.constants.O_TRUNC | fs.constants.O_NOFOLLOW;
-				const fd = await fs$1.open(resolvedPath, flags);
+				const flags = node_fs.default.constants.O_WRONLY | node_fs.default.constants.O_TRUNC | node_fs.default.constants.O_NOFOLLOW;
+				const fd = await node_fs_promises.default.open(resolvedPath, flags);
 				try {
 					await fd.writeFile(newContent, "utf-8");
 				} finally {
 					await fd.close();
 				}
-			} else await fs$1.writeFile(resolvedPath, newContent, "utf-8");
+			} else await node_fs_promises.default.writeFile(resolvedPath, newContent, "utf-8");
 			return {
 				path: filePath,
 				filesUpdate: null,
@@ -866,8 +874,8 @@ var FilesystemBackend = class {
 		}
 		try {
 			const deletePath = await this.resolveDeletePath(resolvedPath, filePath);
-			if ((await fs$1.lstat(deletePath)).isDirectory()) return { error: `Error: '${filePath}' is a directory, not a file` };
-			await fs$1.unlink(deletePath);
+			if ((await node_fs_promises.default.lstat(deletePath)).isDirectory()) return { error: `Error: '${filePath}' is a directory, not a file` };
+			await node_fs_promises.default.unlink(deletePath);
 			return { path: filePath };
 		} catch (error) {
 			if (hasErrorCode(error, "ENOENT")) return { error: `Error: File '${filePath}' not found` };
@@ -892,7 +900,7 @@ var FilesystemBackend = class {
 			return { matches: [] };
 		}
 		try {
-			await fs$1.stat(baseFull);
+			await node_fs_promises.default.stat(baseFull);
 		} catch {
 			return { matches: [] };
 		}
@@ -920,7 +928,7 @@ var FilesystemBackend = class {
 			const args = ["--json", "-F"];
 			if (includeGlob) args.push("--glob", includeGlob);
 			args.push("--", pattern, baseFull);
-			const proc = spawn("rg", args, { timeout: 3e4 });
+			const proc = (0, node_child_process.spawn)("rg", args, { timeout: 3e4 });
 			const results = {};
 			let output = "";
 			proc.stdout.on("data", (data) => {
@@ -941,10 +949,10 @@ var FilesystemBackend = class {
 						if (!ftext) continue;
 						let virtPath;
 						if (this.virtualMode) try {
-							const resolved = path.resolve(ftext);
-							const relative = path.relative(this.cwd, resolved);
+							const resolved = node_path.default.resolve(ftext);
+							const relative = node_path.default.relative(this.cwd, resolved);
 							if (relative.startsWith("..")) continue;
-							virtPath = "/" + relative.split(path.sep).join("/");
+							virtPath = "/" + relative.split(node_path.default.sep).join("/");
 						} catch {
 							continue;
 						}
@@ -977,26 +985,26 @@ var FilesystemBackend = class {
 	*/
 	async literalSearch(pattern, baseFull, includeGlob) {
 		const results = {};
-		const files = await fg("**/*", {
-			cwd: (await fs$1.stat(baseFull)).isDirectory() ? baseFull : path.dirname(baseFull),
+		const files = await (0, fast_glob.default)("**/*", {
+			cwd: (await node_fs_promises.default.stat(baseFull)).isDirectory() ? baseFull : node_path.default.dirname(baseFull),
 			absolute: true,
 			onlyFiles: true,
 			dot: true,
 			followSymbolicLinks: false
 		});
 		for (const fp of files) try {
-			if (!isTextMimeType(getMimeType(fp))) continue;
-			if (includeGlob && !micromatch.isMatch(path.basename(fp), includeGlob)) continue;
-			if ((await fs$1.stat(fp)).size > this.maxFileSizeBytes) continue;
-			const lines = (await fs$1.readFile(fp, "utf-8")).split("\n");
+			if (!require_langsmith.isTextMimeType(require_langsmith.getMimeType(fp))) continue;
+			if (includeGlob && !micromatch.default.isMatch(node_path.default.basename(fp), includeGlob)) continue;
+			if ((await node_fs_promises.default.stat(fp)).size > this.maxFileSizeBytes) continue;
+			const lines = (await node_fs_promises.default.readFile(fp, "utf-8")).split("\n");
 			for (let i = 0; i < lines.length; i++) {
 				const line = lines[i];
 				if (line.includes(pattern)) {
 					let virtPath;
 					if (this.virtualMode) try {
-						const relative = path.relative(this.cwd, fp);
+						const relative = node_path.default.relative(this.cwd, fp);
 						if (relative.startsWith("..")) continue;
-						virtPath = "/" + relative.split(path.sep).join("/");
+						virtPath = "/" + relative.split(node_path.default.sep).join("/");
 					} catch {
 						continue;
 					}
@@ -1017,13 +1025,13 @@ var FilesystemBackend = class {
 		if (pattern.startsWith("/")) pattern = pattern.substring(1);
 		const resolvedSearchPath = searchPath === "/" ? this.cwd : this.resolvePath(searchPath);
 		try {
-			if (!(await fs$1.stat(resolvedSearchPath)).isDirectory()) return { files: [] };
+			if (!(await node_fs_promises.default.stat(resolvedSearchPath)).isDirectory()) return { files: [] };
 		} catch {
 			return { files: [] };
 		}
 		const results = [];
 		try {
-			const matches = await fg(pattern, {
+			const matches = await (0, fast_glob.default)(pattern, {
 				cwd: resolvedSearchPath,
 				absolute: true,
 				onlyFiles: false,
@@ -1031,9 +1039,9 @@ var FilesystemBackend = class {
 				followSymbolicLinks: false
 			});
 			for (const matchedPath of matches) try {
-				const stat = await fs$1.stat(matchedPath);
+				const stat = await node_fs_promises.default.stat(matchedPath);
 				if (!stat.isFile()) continue;
-				const normalizedPath = matchedPath.split("/").join(path.sep);
+				const normalizedPath = matchedPath.split("/").join(node_path.default.sep);
 				if (!this.virtualMode) results.push({
 					path: normalizedPath,
 					is_dir: false,
@@ -1041,12 +1049,12 @@ var FilesystemBackend = class {
 					modified_at: stat.mtime.toISOString()
 				});
 				else {
-					const cwdStr = this.cwd.endsWith(path.sep) ? this.cwd : this.cwd + path.sep;
+					const cwdStr = this.cwd.endsWith(node_path.default.sep) ? this.cwd : this.cwd + node_path.default.sep;
 					let relativePath;
 					if (normalizedPath.startsWith(cwdStr)) relativePath = normalizedPath.substring(cwdStr.length);
 					else if (normalizedPath.startsWith(this.cwd)) relativePath = normalizedPath.substring(this.cwd.length).replace(/^[/\\]/, "");
 					else relativePath = normalizedPath;
-					relativePath = relativePath.split(path.sep).join("/");
+					relativePath = relativePath.split(node_path.default.sep).join("/");
 					const virt = "/" + relativePath;
 					results.push({
 						path: virt,
@@ -1072,8 +1080,8 @@ var FilesystemBackend = class {
 		const responses = [];
 		for (const [filePath, content] of files) try {
 			const resolvedPath = this.resolvePath(filePath);
-			await fs$1.mkdir(path.dirname(resolvedPath), { recursive: true });
-			await fs$1.writeFile(resolvedPath, content);
+			await node_fs_promises.default.mkdir(node_path.default.dirname(resolvedPath), { recursive: true });
+			await node_fs_promises.default.writeFile(resolvedPath, content);
 			responses.push({
 				path: filePath,
 				error: null
@@ -1108,7 +1116,7 @@ var FilesystemBackend = class {
 		const responses = [];
 		for (const filePath of paths) try {
 			const resolvedPath = this.resolvePath(filePath);
-			const content = await fs$1.readFile(resolvedPath);
+			const content = await node_fs_promises.default.readFile(resolvedPath);
 			responses.push({
 				path: filePath,
 				content,
@@ -1246,8 +1254,8 @@ var LocalShellBackend = class LocalShellBackend extends FilesystemBackend {
 	* @throws {SandboxError} If already initialized (`ALREADY_INITIALIZED`)
 	*/
 	async initialize() {
-		if (this.#initialized) throw new SandboxError("Backend is already initialized. Each LocalShellBackend instance can only be initialized once.", "ALREADY_INITIALIZED");
-		await fs$1.mkdir(this.cwd, { recursive: true });
+		if (this.#initialized) throw new require_langsmith.SandboxError("Backend is already initialized. Each LocalShellBackend instance can only be initialized once.", "ALREADY_INITIALIZED");
+		await node_fs_promises.default.mkdir(this.cwd, { recursive: true });
 		this.#initialized = true;
 	}
 	/**
@@ -1285,7 +1293,7 @@ var LocalShellBackend = class LocalShellBackend extends FilesystemBackend {
 		const result = await super.ls(dirPath);
 		if (result.error) return result;
 		if (this.virtualMode) return result;
-		const cwdPrefix = this.cwd.endsWith(path.sep) ? this.cwd : this.cwd + path.sep;
+		const cwdPrefix = this.cwd.endsWith(node_path.default.sep) ? this.cwd : this.cwd + node_path.default.sep;
 		return { files: (result.files || []).map((info) => ({
 			...info,
 			path: info.path.startsWith(cwdPrefix) ? info.path.slice(cwdPrefix.length) : info.path
@@ -1296,14 +1304,14 @@ var LocalShellBackend = class LocalShellBackend extends FilesystemBackend {
 	*/
 	async glob(pattern, searchPath = "/") {
 		if (pattern.startsWith("/")) pattern = pattern.substring(1);
-		const resolvedSearchPath = searchPath === "/" || searchPath === "" ? this.cwd : this.virtualMode ? path.resolve(this.cwd, searchPath.replace(/^\//, "")) : path.resolve(this.cwd, searchPath);
+		const resolvedSearchPath = searchPath === "/" || searchPath === "" ? this.cwd : this.virtualMode ? node_path.default.resolve(this.cwd, searchPath.replace(/^\//, "")) : node_path.default.resolve(this.cwd, searchPath);
 		try {
-			if (!(await fs$1.stat(resolvedSearchPath)).isDirectory()) return { files: [] };
+			if (!(await node_fs_promises.default.stat(resolvedSearchPath)).isDirectory()) return { files: [] };
 		} catch {
 			return { files: [] };
 		}
 		const formatPath = (rel) => this.virtualMode ? `/${rel}` : rel;
-		const matches = await fg(pattern, {
+		const matches = await (0, fast_glob.default)(pattern, {
 			cwd: resolvedSearchPath,
 			absolute: false,
 			dot: true,
@@ -1312,7 +1320,7 @@ var LocalShellBackend = class LocalShellBackend extends FilesystemBackend {
 		});
 		const classify = async (match) => {
 			try {
-				const entryStat = await fs$1.stat(path.join(resolvedSearchPath, match));
+				const entryStat = await node_fs_promises.default.stat(node_path.default.join(resolvedSearchPath, match));
 				if (entryStat.isFile()) return {
 					path: formatPath(match),
 					is_dir: false,
@@ -1356,7 +1364,7 @@ var LocalShellBackend = class LocalShellBackend extends FilesystemBackend {
 			let stdout = "";
 			let stderr = "";
 			let timedOut = false;
-			const child = cp.spawn(command, {
+			const child = node_child_process.default.spawn(command, {
 				shell: true,
 				env: this.#env,
 				cwd: this.cwd
@@ -1435,6 +1443,47 @@ var LocalShellBackend = class LocalShellBackend extends FilesystemBackend {
 	}
 };
 //#endregion
-export { createAgentMemoryMiddleware as a, parseSkillMetadata as i, FilesystemBackend as n, createSettings as o, listSkills as r, findProjectRoot as s, LocalShellBackend as t };
+Object.defineProperty(exports, "FilesystemBackend", {
+	enumerable: true,
+	get: function() {
+		return FilesystemBackend;
+	}
+});
+Object.defineProperty(exports, "LocalShellBackend", {
+	enumerable: true,
+	get: function() {
+		return LocalShellBackend;
+	}
+});
+Object.defineProperty(exports, "createAgentMemoryMiddleware", {
+	enumerable: true,
+	get: function() {
+		return createAgentMemoryMiddleware;
+	}
+});
+Object.defineProperty(exports, "createSettings", {
+	enumerable: true,
+	get: function() {
+		return createSettings;
+	}
+});
+Object.defineProperty(exports, "findProjectRoot", {
+	enumerable: true,
+	get: function() {
+		return findProjectRoot;
+	}
+});
+Object.defineProperty(exports, "listSkills", {
+	enumerable: true,
+	get: function() {
+		return listSkills;
+	}
+});
+Object.defineProperty(exports, "parseSkillMetadata", {
+	enumerable: true,
+	get: function() {
+		return parseSkillMetadata;
+	}
+});
 
-//# sourceMappingURL=src-C-XNgON0.js.map
+//# sourceMappingURL=src-BcLlae3w.cjs.map

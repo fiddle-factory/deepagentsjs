@@ -1483,7 +1483,28 @@ export function createFilesystemMiddleware(
       return { message: msg, filesUpdate: null };
     }
 
-    const textContent = stringifyToolContent(msg.content);
+    // Inline images are the tool's payload, not text bloat: a screenshot's
+    // base64 alone exceeds any sane text limit, so counting it evicted every
+    // image a tool returned and left the model verifying renders it never saw.
+    // Mirror buildEvictedHumanContent — images stay inline, only text is
+    // measured and evicted. Scoped to image blocks (narrower than the human
+    // helper's every-non-text rule) because tool results may carry arbitrary
+    // structured blocks that eviction exists to control.
+    const imageBlocks = Array.isArray(msg.content)
+      ? msg.content.filter(
+          (block): block is Record<string, unknown> =>
+            typeof block === "object" &&
+            block !== null &&
+            "type" in block &&
+            (block.type === "image_url" || block.type === "image"),
+        )
+      : [];
+    const evictableContent =
+      Array.isArray(msg.content) && imageBlocks.length > 0
+        ? msg.content.filter((block) => !imageBlocks.includes(block as never))
+        : msg.content;
+
+    const textContent = stringifyToolContent(evictableContent);
     if (textContent.length <= toolTokenLimitBeforeEvict * NUM_CHARS_PER_TOKEN) {
       return { message: msg, filesUpdate: null };
     }
@@ -1507,7 +1528,10 @@ export function createFilesystemMiddleware(
           .replace("{content_sample}", contentSample);
 
     const truncatedMessage = new ToolMessage({
-      content: replacementText,
+      content:
+        imageBlocks.length > 0
+          ? ([{ type: "text", text: replacementText }, ...imageBlocks] as never)
+          : replacementText,
       tool_call_id: msg.tool_call_id,
       name: msg.name,
       id: msg.id,

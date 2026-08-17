@@ -1,16 +1,40 @@
-import { AIMessage, HumanMessage, SystemMessage, ToolMessage, anthropicPromptCachingMiddleware, bedrockPromptCachingMiddleware, context, countTokensApproximately, createAgent, createMiddleware, humanInTheLoopMiddleware, todoListMiddleware, tool } from "langchain";
-import { Command, REMOVE_ALL_MESSAGES, ReducedValue, StateSchema, getConfig, getCurrentTaskInput, getStore, isCommand } from "@langchain/langgraph";
-import { z } from "zod/v4";
-import micromatch from "micromatch";
-import { AIMessage as AIMessage$1, HumanMessage as HumanMessage$1, RemoveMessage, getBufferString } from "@langchain/core/messages";
-import * as z$2 from "zod";
-import { z as z$1 } from "zod";
-import yaml from "yaml";
-import { Client } from "@langchain/langgraph-sdk";
-import { ContextOverflowError } from "@langchain/core/errors";
-import { initChatModel } from "langchain/chat_models/universal";
-import { Client as Client$1 } from "langsmith";
-import { LangSmithResourceNotFoundError, LangSmithSandboxError, SandboxClient } from "langsmith/experimental/sandbox";
+//#region \0rolldown/runtime.js
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __copyProps = (to, from, except, desc) => {
+	if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames(from), i = 0, n = keys.length, key; i < n; i++) {
+		key = keys[i];
+		if (!__hasOwnProp.call(to, key) && key !== except) __defProp(to, key, {
+			get: ((k) => from[k]).bind(null, key),
+			enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
+		});
+	}
+	return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", {
+	value: mod,
+	enumerable: true
+}) : target, mod));
+//#endregion
+let langchain = require("langchain");
+let _langchain_langgraph = require("@langchain/langgraph");
+let zod_v4 = require("zod/v4");
+let micromatch = require("micromatch");
+micromatch = __toESM(micromatch, 1);
+let _langchain_core_messages = require("@langchain/core/messages");
+let zod = require("zod");
+zod = __toESM(zod, 1);
+let yaml = require("yaml");
+yaml = __toESM(yaml, 1);
+let _langchain_langgraph_sdk = require("@langchain/langgraph-sdk");
+let _langchain_core_errors = require("@langchain/core/errors");
+let langchain_chat_models_universal = require("langchain/chat_models/universal");
+let langsmith = require("langsmith");
+let langsmith_experimental_sandbox = require("langsmith/experimental/sandbox");
 //#region src/backends/utils.ts
 /**
 * Shared utility functions for memory backend implementations.
@@ -391,7 +415,7 @@ function globSearchFiles(files, pattern, path = "/") {
 			const parts = filePath.split("/");
 			relative = parts[parts.length - 1] || "";
 		}
-		if (micromatch.isMatch(relative, effectivePattern, {
+		if (micromatch.default.isMatch(relative, effectivePattern, {
 			dot: true,
 			nobrace: false
 		})) matches.push([filePath, fileData.modified_at]);
@@ -438,7 +462,7 @@ function formatGrepResults(results, outputMode) {
 function grepMatchesFromFiles(files, pattern, path = null, glob = null) {
 	let filtered = filterFilesByPath(files, path);
 	if (filtered === null) return [];
-	if (glob) filtered = Object.fromEntries(Object.entries(filtered).filter(([fp]) => micromatch.isMatch(basename(fp), glob, {
+	if (glob) filtered = Object.fromEntries(Object.entries(filtered).filter(([fp]) => micromatch.default.isMatch(basename(fp), glob, {
 		dot: true,
 		nobrace: false
 	})));
@@ -746,7 +770,7 @@ var StateBackend = class {
 	*/
 	get files() {
 		if (this.runtime) return this.runtime.state.files ?? {};
-		const read = getConfig().configurable?.[PREGEL_READ_KEY];
+		const read = (0, _langchain_langgraph.getConfig)().configurable?.[PREGEL_READ_KEY];
 		return read?.("files", true) ?? {};
 	}
 	/**
@@ -762,7 +786,7 @@ var StateBackend = class {
 	*/
 	sendFilesUpdate(update) {
 		if (this.isLegacy) return;
-		const send = getConfig().configurable?.[PREGEL_SEND_KEY];
+		const send = (0, _langchain_langgraph.getConfig)().configurable?.[PREGEL_SEND_KEY];
 		if (typeof send === "function") send([["files", update]]);
 	}
 	/**
@@ -1025,7 +1049,7 @@ function validatePath(raw) {
 * Uses `micromatch` with `dot: true` so dotfiles are matched by default.
 */
 function globMatch(path, pattern) {
-	return micromatch.isMatch(path, pattern, { dot: true });
+	return micromatch.default.isMatch(path, pattern, { dot: true });
 }
 /**
 * Evaluate permission rules against an operation + path and return the
@@ -1427,7 +1451,7 @@ const READ_FILE_TRUNCATION_MSG = `
 /**
 * Message template for evicted tool results.
 */
-const TOO_LARGE_TOOL_MSG = context`
+const TOO_LARGE_TOOL_MSG = langchain.context`
   Tool result too large, the result of this tool call {tool_call_id} was saved in the filesystem at this path: {file_path}
   You can read the result from the filesystem by using the read_file tool, but make sure to only read part of the result at a time.
   You can do this by specifying an offset and limit in the read_file tool call.
@@ -1496,7 +1520,7 @@ function buildEvictedHumanContent(message, replacementText) {
 */
 function buildTruncatedHumanMessage(message, filePath) {
 	const contentSample = createContentPreview(extractTextFromMessage(message));
-	return new HumanMessage({
+	return new langchain.HumanMessage({
 		content: buildEvictedHumanContent(message, TOO_LARGE_HUMAN_MSG.replace("{file_path}", filePath).replace("{content_sample}", contentSample)),
 		id: message.id,
 		additional_kwargs: { ...message.additional_kwargs },
@@ -1524,24 +1548,24 @@ function createContentPreview(contentStr, headLines = 5, tailLines = 5) {
 /**
 * Zod schema for legacy FileDataV1 (content as line array).
 */
-const FileDataV1Schema = z.object({
-	content: z.array(z.string()),
-	created_at: z.string(),
-	modified_at: z.string()
+const FileDataV1Schema = zod_v4.z.object({
+	content: zod_v4.z.array(zod_v4.z.string()),
+	created_at: zod_v4.z.string(),
+	modified_at: zod_v4.z.string()
 });
 /**
 * Zod schema for FileDataV2 (content as string for text or Uint8Array for binary).
 */
-const FileDataV2Schema = z.object({
-	content: z.union([z.string(), z.instanceof(Uint8Array)]),
-	mimeType: z.string(),
-	created_at: z.string(),
-	modified_at: z.string()
+const FileDataV2Schema = zod_v4.z.object({
+	content: zod_v4.z.union([zod_v4.z.string(), zod_v4.z.instanceof(Uint8Array)]),
+	mimeType: zod_v4.z.string(),
+	created_at: zod_v4.z.string(),
+	modified_at: zod_v4.z.string()
 });
 /**
 * Zod v3 schema for FileData (re-export from backends)
 */
-const FileDataSchema = z.union([FileDataV1Schema, FileDataV2Schema]);
+const FileDataSchema = zod_v4.z.union([FileDataV1Schema, FileDataV2Schema]);
 /**
 * Reducer for files state that merges file updates with support for deletions.
 * When a file value is null, the file is deleted from state.
@@ -1574,8 +1598,8 @@ function fileDataReducer(current, update) {
 *
 * Uses ReducedValue for files to allow concurrent updates from parallel subagents.
 */
-const FilesystemStateSchema = new StateSchema({ files: new ReducedValue(z.record(z.string(), FileDataSchema).default(() => ({})), {
-	inputSchema: z.record(z.string(), FileDataSchema.nullable()).optional(),
+const FilesystemStateSchema = new _langchain_langgraph.StateSchema({ files: new _langchain_langgraph.ReducedValue(zod_v4.z.record(zod_v4.z.string(), FileDataSchema).default(() => ({})), {
+	inputSchema: zod_v4.z.record(zod_v4.z.string(), FileDataSchema.nullable()).optional(),
 	reducer: fileDataReducer
 }) });
 /** Extract a message string from an unknown thrown value without `instanceof`. */
@@ -1612,7 +1636,7 @@ function checkPermission(rules, operation, path) {
 * successful result.
 */
 function toolError(runtime, toolName, message) {
-	return new ToolMessage({
+	return new langchain.ToolMessage({
 		content: message,
 		name: toolName,
 		tool_call_id: runtime.toolCall?.id,
@@ -1638,13 +1662,13 @@ function filterByPermissions(entries, rules, operation, getPath) {
 		}
 	});
 }
-const LS_TOOL_DESCRIPTION = context`
+const LS_TOOL_DESCRIPTION = langchain.context`
   Lists all files in a directory.
 
   This is useful for exploring the filesystem and finding the right file to read or edit.
   You should almost ALWAYS use this tool before using the read_file or edit_file tools.
 `;
-const READ_FILE_TOOL_DESCRIPTION = context`
+const READ_FILE_TOOL_DESCRIPTION = langchain.context`
   Reads a file from the filesystem. Assume any path the user provides is valid; reading a missing file returns an error.
 
   Usage:
@@ -1658,14 +1682,14 @@ const READ_FILE_TOOL_DESCRIPTION = context`
   - For images and PDFs, pagination via \`offset\`/\`limit\` is text-only - supply \`file_path\` only.
   - Always read a file before editing it.
 `;
-const WRITE_FILE_TOOL_DESCRIPTION = context`
+const WRITE_FILE_TOOL_DESCRIPTION = langchain.context`
   Writes content to a file. Creates the file if it does not exist; replaces it entirely if it does.
 
   Usage:
   - Use this tool when you intend to create a new file or replace the whole file. You do not need to read the file first.
   - Prefer to edit existing files (with the edit_file tool) over creating new ones when possible.
 `;
-const EDIT_FILE_TOOL_DESCRIPTION = context`
+const EDIT_FILE_TOOL_DESCRIPTION = langchain.context`
   Performs exact string replacements in files.
 
   Usage:
@@ -1674,14 +1698,14 @@ const EDIT_FILE_TOOL_DESCRIPTION = context`
   - Prefer editing an existing file over creating a new one.
   - Only use emojis if the user explicitly requests it.
 `;
-const GLOB_TOOL_DESCRIPTION = context`
+const GLOB_TOOL_DESCRIPTION = langchain.context`
   Find files matching a glob pattern, returning absolute paths.
 
   Supports \`*\` (any characters), \`**\` (any directories), \`?\` (single character), e.g. \`**/*.py\`, \`*.txt\`, \`/subdir/**/*.md\`.
 `;
 const GREP_REGEX_EXECUTE_FALLBACK = "\n- If you genuinely need regex, use the execute tool with `rg '<regex>'` instead.";
 function getGrepToolDescription(includeExecution) {
-	return context`
+	return langchain.context`
     Search for a LITERAL text pattern across files (NOT regex).
 
     The pattern is matched verbatim: regex metacharacters are ordinary characters, not operators. To match any of several strings, run a separate grep for each; \`grep(pattern="foo|bar")\` searches for the literal text "foo|bar", and \`.*\` or \`\\.\` match those characters literally.${includeExecution ? GREP_REGEX_EXECUTE_FALLBACK : ""}
@@ -1698,7 +1722,7 @@ const EXECUTE_SEARCH_GUIDANCE = {
 function getExecuteToolDescription(hasGrep, hasGlob) {
 	const searchGuidance = hasGrep ? hasGlob ? EXECUTE_SEARCH_GUIDANCE.both : EXECUTE_SEARCH_GUIDANCE.grep : hasGlob ? EXECUTE_SEARCH_GUIDANCE.glob : EXECUTE_SEARCH_GUIDANCE.none;
 	const examples = [hasGlob ? "- execute(command=\"find . -name '*.py'\") # Use glob tool instead" : "", hasGrep ? "- execute(command=\"grep -r 'pattern' .\") # Use grep tool instead" : ""].filter(Boolean);
-	return context`
+	return langchain.context`
     Executes a shell command in an isolated sandbox and returns combined stdout/stderr with the exit code (truncated if very large).
 
     Usage:
@@ -1715,7 +1739,7 @@ function getExecuteToolDescription(hasGrep, hasGlob) {
 */
 function createLsTool(backend, options) {
 	const { customDescription, permissions } = options;
-	return tool(async (input, runtime) => {
+	return (0, langchain.tool)(async (input, runtime) => {
 		const permissionError = checkPermission(permissions, "read", input.path ?? "/");
 		if (permissionError !== void 0) return toolError(runtime, "ls", permissionError);
 		const resolvedBackend = await resolveBackend(backend, runtime);
@@ -1736,7 +1760,7 @@ function createLsTool(backend, options) {
 	}, {
 		name: "ls",
 		description: customDescription || LS_TOOL_DESCRIPTION,
-		schema: z.object({ path: z.string().optional().default("/").describe("Directory path to list (default: /)") })
+		schema: zod_v4.z.object({ path: zod_v4.z.string().optional().default("/").describe("Directory path to list (default: /)") })
 	});
 }
 /**
@@ -1744,7 +1768,7 @@ function createLsTool(backend, options) {
 */
 function createReadFileTool(backend, options) {
 	const { customDescription, toolTokenLimitBeforeEvict, permissions } = options;
-	return tool(async (input, runtime) => {
+	return (0, langchain.tool)(async (input, runtime) => {
 		const permissionError = checkPermission(permissions, "read", input.file_path);
 		if (permissionError !== void 0) return toolError(runtime, "read_file", permissionError);
 		const resolvedBackend = await resolveBackend(backend, runtime);
@@ -1810,10 +1834,10 @@ function createReadFileTool(backend, options) {
 	}, {
 		name: "read_file",
 		description: customDescription || READ_FILE_TOOL_DESCRIPTION,
-		schema: z.preprocess(normalizeFilePathInput, z.object({
-			file_path: z.string().describe("Absolute path to the file to read"),
-			offset: z.coerce.number().optional().default(0).describe("Line offset to start reading from (0-indexed)"),
-			limit: z.coerce.number().optional().default(100).describe("Maximum number of lines to read")
+		schema: zod_v4.z.preprocess(normalizeFilePathInput, zod_v4.z.object({
+			file_path: zod_v4.z.string().describe("Absolute path to the file to read"),
+			offset: zod_v4.z.coerce.number().optional().default(0).describe("Line offset to start reading from (0-indexed)"),
+			limit: zod_v4.z.coerce.number().optional().default(100).describe("Maximum number of lines to read")
 		}))
 	});
 }
@@ -1822,20 +1846,20 @@ function createReadFileTool(backend, options) {
 */
 function createWriteFileTool(backend, options) {
 	const { customDescription, permissions } = options;
-	return tool(async (input, runtime) => {
+	return (0, langchain.tool)(async (input, runtime) => {
 		const permissionError = checkPermission(permissions, "write", input.file_path);
 		if (permissionError !== void 0) return toolError(runtime, "write_file", permissionError);
 		const resolvedBackend = await resolveBackend(backend, runtime);
 		const { file_path, content } = input;
 		const result = await resolvedBackend.write(file_path, content);
 		if (result.error) return result.error;
-		const message = new ToolMessage({
+		const message = new langchain.ToolMessage({
 			content: `Successfully wrote to '${file_path}'`,
 			tool_call_id: runtime.toolCall?.id,
 			name: "write_file",
 			metadata: result.metadata
 		});
-		if (result.filesUpdate) return new Command({ update: {
+		if (result.filesUpdate) return new _langchain_langgraph.Command({ update: {
 			files: result.filesUpdate,
 			messages: [message]
 		} });
@@ -1843,9 +1867,9 @@ function createWriteFileTool(backend, options) {
 	}, {
 		name: "write_file",
 		description: customDescription || WRITE_FILE_TOOL_DESCRIPTION,
-		schema: z.preprocess(normalizeFilePathInput, z.object({
-			file_path: z.string().describe("Absolute path where the file should be written. Must be absolute, not relative."),
-			content: z.string().default("").describe("The text content to write to the file. Defaults to empty.")
+		schema: zod_v4.z.preprocess(normalizeFilePathInput, zod_v4.z.object({
+			file_path: zod_v4.z.string().describe("Absolute path where the file should be written. Must be absolute, not relative."),
+			content: zod_v4.z.string().default("").describe("The text content to write to the file. Defaults to empty.")
 		}))
 	});
 }
@@ -1854,20 +1878,20 @@ function createWriteFileTool(backend, options) {
 */
 function createEditFileTool(backend, options) {
 	const { customDescription, permissions } = options;
-	return tool(async (input, runtime) => {
+	return (0, langchain.tool)(async (input, runtime) => {
 		const permissionError = checkPermission(permissions, "write", input.file_path);
 		if (permissionError !== void 0) return toolError(runtime, "edit_file", permissionError);
 		const resolvedBackend = await resolveBackend(backend, runtime);
 		const { file_path, old_string, new_string, replace_all = false } = input;
 		const result = await resolvedBackend.edit(file_path, old_string, new_string, replace_all);
 		if (result.error) return result.error;
-		const message = new ToolMessage({
+		const message = new langchain.ToolMessage({
 			content: `Successfully replaced ${result.occurrences} occurrence(s) in '${file_path}'`,
 			tool_call_id: runtime.toolCall?.id,
 			name: "edit_file",
 			metadata: result.metadata
 		});
-		if (result.filesUpdate) return new Command({ update: {
+		if (result.filesUpdate) return new _langchain_langgraph.Command({ update: {
 			files: result.filesUpdate,
 			messages: [message]
 		} });
@@ -1875,11 +1899,11 @@ function createEditFileTool(backend, options) {
 	}, {
 		name: "edit_file",
 		description: customDescription || EDIT_FILE_TOOL_DESCRIPTION,
-		schema: z.preprocess(normalizeFilePathInput, z.object({
-			file_path: z.string().describe("Absolute path to the file to edit"),
-			old_string: z.string().describe("String to be replaced (must match exactly)"),
-			new_string: z.string().describe("String to replace with"),
-			replace_all: z.boolean().optional().default(false).describe("Whether to replace all occurrences")
+		schema: zod_v4.z.preprocess(normalizeFilePathInput, zod_v4.z.object({
+			file_path: zod_v4.z.string().describe("Absolute path to the file to edit"),
+			old_string: zod_v4.z.string().describe("String to be replaced (must match exactly)"),
+			new_string: zod_v4.z.string().describe("String to replace with"),
+			replace_all: zod_v4.z.boolean().optional().default(false).describe("Whether to replace all occurrences")
 		}))
 	});
 }
@@ -1888,7 +1912,7 @@ function createEditFileTool(backend, options) {
 */
 function createGlobTool(backend, options) {
 	const { customDescription, permissions } = options;
-	return tool(async (input, runtime) => {
+	return (0, langchain.tool)(async (input, runtime) => {
 		const permissionError = checkPermission(permissions, "read", input.path ?? "/");
 		if (permissionError !== void 0) return toolError(runtime, "glob", permissionError);
 		const resolvedBackend = await resolveBackend(backend, runtime);
@@ -1903,9 +1927,9 @@ function createGlobTool(backend, options) {
 	}, {
 		name: "glob",
 		description: customDescription || GLOB_TOOL_DESCRIPTION,
-		schema: z.object({
-			pattern: z.string().describe("Glob pattern to match files (e.g., '**/*.py', '*.txt', '/subdir/**/*.md')"),
-			path: z.string().optional().describe("Base directory to search from. Defaults to the backend's default root.")
+		schema: zod_v4.z.object({
+			pattern: zod_v4.z.string().describe("Glob pattern to match files (e.g., '**/*.py', '*.txt', '/subdir/**/*.md')"),
+			path: zod_v4.z.string().optional().describe("Base directory to search from. Defaults to the backend's default root.")
 		})
 	});
 }
@@ -1914,7 +1938,7 @@ function createGlobTool(backend, options) {
 */
 function createGrepTool(backend, options) {
 	const { customDescription, permissions, includeExecution } = options;
-	return tool(async (input, runtime) => {
+	return (0, langchain.tool)(async (input, runtime) => {
 		const permissionError = checkPermission(permissions, "read", input.path ?? "/");
 		if (permissionError !== void 0) return toolError(runtime, "grep", permissionError);
 		const resolvedBackend = await resolveBackend(backend, runtime);
@@ -1935,19 +1959,19 @@ function createGrepTool(backend, options) {
 	}, {
 		name: "grep",
 		description: customDescription || getGrepToolDescription(includeExecution),
-		schema: z.object({
-			pattern: z.string().describe("Literal text pattern to search for (not regex)"),
-			path: z.string().optional().default("/").describe("Base path to search from (default: /)"),
-			glob: z.string().optional().nullable().default(null).describe("Optional glob pattern to filter files (e.g., '*.py')"),
-			output_mode: z.enum([
+		schema: zod_v4.z.object({
+			pattern: zod_v4.z.string().describe("Literal text pattern to search for (not regex)"),
+			path: zod_v4.z.string().optional().default("/").describe("Base path to search from (default: /)"),
+			glob: zod_v4.z.string().optional().nullable().default(null).describe("Optional glob pattern to filter files (e.g., '*.py')"),
+			output_mode: zod_v4.z.enum([
 				"files_with_matches",
 				"content",
 				"count"
 			]).optional().default("content").describe("Output format: 'files_with_matches' lists matching file paths, 'content' shows each match with surrounding context lines (default), 'count' shows match counts per file. 'context' applies to 'content' only."),
-			context: z.number().int().min(0).optional().nullable().default(null).describe("Lines of context around each match in 'content' mode (default: 2). Use 0 for the matching line alone. Ignored by the other output modes."),
-			ignoreCase: z.boolean().optional().nullable().default(null).describe("Force case-insensitive (true) or case-sensitive (false) search. Omit for smart-case: an all-lowercase pattern matches case-insensitively."),
-			limit: z.number().int().min(1).optional().nullable().default(null).describe("Maximum matches to return (default: 100). The backend may cap this lower."),
-			exclude: z.array(z.string()).optional().nullable().default(null).describe("Additional glob patterns to exclude, e.g. ['**/*.test.ts']. These ADD to the backend's built-in excludes; they cannot remove one.")
+			context: zod_v4.z.number().int().min(0).optional().nullable().default(null).describe("Lines of context around each match in 'content' mode (default: 2). Use 0 for the matching line alone. Ignored by the other output modes."),
+			ignoreCase: zod_v4.z.boolean().optional().nullable().default(null).describe("Force case-insensitive (true) or case-sensitive (false) search. Omit for smart-case: an all-lowercase pattern matches case-insensitively."),
+			limit: zod_v4.z.number().int().min(1).optional().nullable().default(null).describe("Maximum matches to return (default: 100). The backend may cap this lower."),
+			exclude: zod_v4.z.array(zod_v4.z.string()).optional().nullable().default(null).describe("Additional glob patterns to exclude, e.g. ['**/*.test.ts']. These ADD to the backend's built-in excludes; they cannot remove one.")
 		})
 	});
 }
@@ -1956,7 +1980,7 @@ function createGrepTool(backend, options) {
 */
 function createExecuteTool(backend, options) {
 	const { customDescription, permissions, hasGrep, hasGlob } = options;
-	return tool(async (input, runtime) => {
+	return (0, langchain.tool)(async (input, runtime) => {
 		const resolvedBackend = await resolveBackend(backend, runtime);
 		if (!isSandboxBackend(resolvedBackend)) return "Error: Execution not available. This agent's backend does not support command execution (SandboxBackendProtocol). To use the execute tool, provide a backend that implements SandboxBackendProtocol.";
 		if (permissions.length > 0 && !allPathsScopedToRoutes(permissions, resolvedBackend)) return "Error: Execution not available. Filesystem permissions cannot be used with a backend that supports command execution because shell commands can access any path, making path-based rules ineffective.";
@@ -1971,7 +1995,7 @@ function createExecuteTool(backend, options) {
 	}, {
 		name: "execute",
 		description: customDescription || getExecuteToolDescription(hasGrep, hasGlob),
-		schema: z.object({ command: z.string().describe("The shell command to execute") })
+		schema: zod_v4.z.object({ command: zod_v4.z.string().describe("The shell command to execute") })
 	});
 }
 /**
@@ -2071,7 +2095,8 @@ function createFilesystemMiddleware(options = {}) {
 			message: msg,
 			filesUpdate: null
 		};
-		const textContent = stringifyToolContent(msg.content);
+		const imageBlocks = Array.isArray(msg.content) ? msg.content.filter((block) => typeof block === "object" && block !== null && "type" in block && (block.type === "image_url" || block.type === "image")) : [];
+		const textContent = stringifyToolContent(Array.isArray(msg.content) && imageBlocks.length > 0 ? msg.content.filter((block) => !imageBlocks.includes(block)) : msg.content);
 		if (textContent.length <= toolTokenLimitBeforeEvict * 4) return {
 			message: msg,
 			filesUpdate: null
@@ -2083,9 +2108,13 @@ function createFilesystemMiddleware(options = {}) {
 		const evictPath = `/large_tool_results/${sanitizeToolCallId(fallbackToolCallId || msg.tool_call_id)}.txt`;
 		const writeResult = await resolvedBackend.write(evictPath, textContent);
 		const contentSample = createContentPreview(textContent);
+		const replacementText = writeResult.error ? `Tool result too large, but the result could not be saved to the filesystem: ${writeResult.error}` : TOO_LARGE_TOOL_MSG.replace("{tool_call_id}", msg.tool_call_id).replace("{file_path}", evictPath).replace("{content_sample}", contentSample);
 		return {
-			message: new ToolMessage({
-				content: writeResult.error ? `Tool result too large, but the result could not be saved to the filesystem: ${writeResult.error}` : TOO_LARGE_TOOL_MSG.replace("{tool_call_id}", msg.tool_call_id).replace("{file_path}", evictPath).replace("{content_sample}", contentSample),
+			message: new langchain.ToolMessage({
+				content: imageBlocks.length > 0 ? [{
+					type: "text",
+					text: replacementText
+				}, ...imageBlocks] : replacementText,
 				tool_call_id: msg.tool_call_id,
 				name: msg.name,
 				id: msg.id,
@@ -2098,7 +2127,7 @@ function createFilesystemMiddleware(options = {}) {
 			filesUpdate: writeResult.error ? null : writeResult.filesUpdate
 		};
 	}
-	return createMiddleware({
+	return (0, langchain.createMiddleware)({
 		name: "FilesystemMiddleware",
 		stateSchema: FilesystemStateSchema,
 		tools: allTools,
@@ -2107,7 +2136,7 @@ function createFilesystemMiddleware(options = {}) {
 			const messages = state.messages;
 			if (!messages || messages.length === 0) return;
 			const last = messages[messages.length - 1];
-			if (!HumanMessage.isInstance(last)) return;
+			if (!langchain.HumanMessage.isInstance(last)) return;
 			if (last.additional_kwargs?.lc_evicted_to) return;
 			const contentStr = extractTextFromMessage(last);
 			const threshold = 4 * humanMessageTokenLimitBeforeEvict;
@@ -2116,7 +2145,7 @@ function createFilesystemMiddleware(options = {}) {
 			const filePath = `/conversation_history/${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
 			const writeResult = await resolvedBackend.write(filePath, contentStr);
 			if (writeResult.error) return;
-			const result = { messages: [new HumanMessage({
+			const result = { messages: [new langchain.HumanMessage({
 				content: last.content,
 				id: last.id,
 				additional_kwargs: {
@@ -2138,8 +2167,8 @@ function createFilesystemMiddleware(options = {}) {
 			const newSystemMessage = baseSystemPrompt ? request.systemMessage.concat(baseSystemPrompt) : request.systemMessage;
 			let messages = request.messages;
 			if (humanMessageTokenLimitBeforeEvict && messages) {
-				if (messages.some((msg) => HumanMessage.isInstance(msg) && msg.additional_kwargs?.lc_evicted_to)) messages = messages.map((msg) => {
-					if (HumanMessage.isInstance(msg) && msg.additional_kwargs?.lc_evicted_to) return buildTruncatedHumanMessage(msg, msg.additional_kwargs.lc_evicted_to);
+				if (messages.some((msg) => langchain.HumanMessage.isInstance(msg) && msg.additional_kwargs?.lc_evicted_to)) messages = messages.map((msg) => {
+					if (langchain.HumanMessage.isInstance(msg) && msg.additional_kwargs?.lc_evicted_to) return buildTruncatedHumanMessage(msg, msg.additional_kwargs.lc_evicted_to);
 					return msg;
 				});
 			}
@@ -2155,21 +2184,21 @@ function createFilesystemMiddleware(options = {}) {
 			const toolName = request.toolCall?.name;
 			if (toolName && TOOLS_EXCLUDED_FROM_EVICTION.includes(toolName)) return handler(request);
 			const result = await handler(request);
-			if (ToolMessage.isInstance(result)) {
+			if (langchain.ToolMessage.isInstance(result)) {
 				const processed = await processToolMessage(result, request.runtime, request.state, request.toolCall?.id);
-				if (processed.filesUpdate) return new Command({ update: {
+				if (processed.filesUpdate) return new _langchain_langgraph.Command({ update: {
 					files: processed.filesUpdate,
 					messages: [processed.message]
 				} });
 				return processed.message;
 			}
-			if (isCommand(result)) {
+			if ((0, _langchain_langgraph.isCommand)(result)) {
 				const update = result.update;
 				if (!update?.messages) return result;
 				let hasLargeResults = false;
 				const accumulatedFiles = update.files ? { ...update.files } : {};
 				const processedMessages = [];
-				for (const msg of update.messages) if (ToolMessage.isInstance(msg)) {
+				for (const msg of update.messages) if (langchain.ToolMessage.isInstance(msg)) {
 					const processed = await processToolMessage(msg, request.runtime, request.state, request.toolCall?.id);
 					processedMessages.push(processed.message);
 					if (processed.filesUpdate) {
@@ -2177,7 +2206,7 @@ function createFilesystemMiddleware(options = {}) {
 						Object.assign(accumulatedFiles, processed.filesUpdate);
 					}
 				} else processedMessages.push(msg);
-				if (hasLargeResults) return new Command({ update: {
+				if (hasLargeResults) return new _langchain_langgraph.Command({ update: {
 					...update,
 					messages: processedMessages,
 					files: accumulatedFiles
@@ -2226,7 +2255,7 @@ const EXCLUDED_STATE_KEYS = [
 */
 const DEFAULT_GENERAL_PURPOSE_DESCRIPTION = "General-purpose agent for researching complex questions, searching for files and content, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you. This agent has access to all tools as the main agent.";
 function getTaskToolDescription(subagentDescriptions) {
-	return context`
+	return langchain.context`
     Launch an ephemeral subagent to handle a complex, multi-step task in an isolated context window.
 
     Available agent types and the tools they have access to:
@@ -2311,7 +2340,7 @@ function returnCommandWithStateUpdate(result, toolCallId) {
 		content = "Task completed";
 		for (let i = messages.length - 1; i >= 0; i -= 1) {
 			const message = messages[i];
-			if (!message || !AIMessage$1.isInstance(message)) continue;
+			if (!message || !_langchain_core_messages.AIMessage.isInstance(message)) continue;
 			const text = typeof message.content === "string" ? message.content.trim() : message.text?.trim() ?? "";
 			if (text) {
 				content = text;
@@ -2319,9 +2348,9 @@ function returnCommandWithStateUpdate(result, toolCallId) {
 			}
 		}
 	}
-	return new Command({ update: {
+	return new _langchain_langgraph.Command({ update: {
 		...stateUpdate,
-		messages: [new ToolMessage({
+		messages: [new langchain.ToolMessage({
 			content,
 			tool_call_id: toolCallId,
 			name: "task"
@@ -2345,9 +2374,9 @@ function createSubAgent(spec, options) {
 	if (!spec.model) throw new Error(`SubAgent '${spec.name}' must specify 'model'`);
 	if (!spec.tools) throw new Error(`SubAgent '${spec.name}' must specify 'tools'`);
 	const middleware = [...spec.middleware ?? []];
-	if (spec.interruptOn) middleware.push(humanInTheLoopMiddleware({ interruptOn: spec.interruptOn }));
+	if (spec.interruptOn) middleware.push((0, langchain.humanInTheLoopMiddleware)({ interruptOn: spec.interruptOn }));
 	const selectedResponseFormat = options?.responseFormat ?? spec.responseFormat;
-	return createAgent({
+	return (0, langchain.createAgent)({
 		model: spec.model,
 		systemPrompt: spec.systemPrompt,
 		tools: spec.tools,
@@ -2371,7 +2400,7 @@ function getSubagents(options) {
 	const subagentDescriptions = [];
 	if (generalPurposeAgent) {
 		const generalPurposeMiddleware = [...generalPurposeMiddlewareBase];
-		if (defaultInterruptOn) generalPurposeMiddleware.push(humanInTheLoopMiddleware({ interruptOn: defaultInterruptOn }));
+		if (defaultInterruptOn) generalPurposeMiddleware.push((0, langchain.humanInTheLoopMiddleware)({ interruptOn: defaultInterruptOn }));
 		const gpSpec = {
 			name: "general-purpose",
 			description: DEFAULT_GENERAL_PURPOSE_DESCRIPTION,
@@ -2430,15 +2459,15 @@ function createTaskTool(options) {
 		}
 		return subagentGraphs[subagentType];
 	}
-	return tool(async (input, config) => {
+	return (0, langchain.tool)(async (input, config) => {
 		const { description, subagent_type } = input;
 		if (!(subagent_type in subagentGraphs)) {
 			const allowedTypes = Object.keys(subagentGraphs).map((k) => `\`${k}\``).join(", ");
 			throw new Error(`Error: invoked agent of type ${subagent_type}, the only allowed types are ${allowedTypes}`);
 		}
 		const subagent = selectSubagent(subagent_type, config);
-		const subagentState = filterStateForSubagent(getCurrentTaskInput());
-		subagentState.messages = [new HumanMessage$1({ content: description })];
+		const subagentState = filterStateForSubagent((0, _langchain_langgraph.getCurrentTaskInput)());
+		subagentState.messages = [new _langchain_core_messages.HumanMessage({ content: description })];
 		const subagentConfig = {
 			...config,
 			metadata: {
@@ -2466,9 +2495,9 @@ function createTaskTool(options) {
 	}, {
 		name: "task",
 		description: taskDescription ? taskDescription : getTaskToolDescription(subagentDescriptions),
-		schema: z.object({
-			description: z.string().describe("The task to execute with the selected agent"),
-			subagent_type: z.string().describe(`Name of the agent to use. Available: ${Object.keys(subagentGraphs).join(", ")}`)
+		schema: zod_v4.z.object({
+			description: zod_v4.z.string().describe("The task to execute with the selected agent"),
+			subagent_type: zod_v4.z.string().describe(`Name of the agent to use. Available: ${Object.keys(subagentGraphs).join(", ")}`)
 		})
 	});
 }
@@ -2477,7 +2506,7 @@ function createTaskTool(options) {
 */
 function createSubAgentMiddleware(options) {
 	const { defaultModel, defaultTools = [], defaultMiddleware = null, generalPurposeMiddleware = null, defaultInterruptOn = null, subagents = [], systemPrompt = null, generalPurposeAgent = true, taskDescription = null } = options;
-	return createMiddleware({
+	return (0, langchain.createMiddleware)({
 		name: "subAgentMiddleware",
 		tools: [createTaskTool({
 			defaultModel,
@@ -2492,7 +2521,7 @@ function createSubAgentMiddleware(options) {
 		wrapModelCall: async (request, handler) => {
 			if (systemPrompt !== null) return handler({
 				...request,
-				systemMessage: request.systemMessage.concat(new SystemMessage({ content: systemPrompt }))
+				systemMessage: request.systemMessage.concat(new langchain.SystemMessage({ content: systemPrompt }))
 			});
 			return handler(request);
 		}
@@ -2525,25 +2554,25 @@ function patchDanglingToolCalls(messages) {
 		needsPatch: false
 	};
 	const allToolCallIds = /* @__PURE__ */ new Set();
-	for (const msg of messages) if (AIMessage.isInstance(msg) && msg.tool_calls != null) {
+	for (const msg of messages) if (langchain.AIMessage.isInstance(msg) && msg.tool_calls != null) {
 		for (const tc of msg.tool_calls) if (tc.id) allToolCallIds.add(tc.id);
 	}
 	const patchedMessages = [];
 	let needsPatch = false;
 	for (let i = 0; i < messages.length; i++) {
 		const msg = messages[i];
-		if (ToolMessage.isInstance(msg)) {
+		if (langchain.ToolMessage.isInstance(msg)) {
 			if (!allToolCallIds.has(msg.tool_call_id)) {
 				needsPatch = true;
 				continue;
 			}
 		}
 		patchedMessages.push(msg);
-		if (AIMessage.isInstance(msg) && msg.tool_calls != null) {
-			for (const toolCall of msg.tool_calls) if (!messages.slice(i + 1).find((m) => ToolMessage.isInstance(m) && m.tool_call_id === toolCall.id)) {
+		if (langchain.AIMessage.isInstance(msg) && msg.tool_calls != null) {
+			for (const toolCall of msg.tool_calls) if (!messages.slice(i + 1).find((m) => langchain.ToolMessage.isInstance(m) && m.tool_call_id === toolCall.id)) {
 				needsPatch = true;
 				const toolMsg = `Tool call ${toolCall.name} with id ${toolCall.id} was cancelled - another message came in before it could be completed.`;
-				patchedMessages.push(new ToolMessage({
+				patchedMessages.push(new langchain.ToolMessage({
 					content: toolMsg,
 					name: toolCall.name,
 					tool_call_id: toolCall.id
@@ -2590,7 +2619,7 @@ function patchDanglingToolCalls(messages) {
 * ```
 */
 function createPatchToolCallsMiddleware() {
-	return createMiddleware({
+	return (0, langchain.createMiddleware)({
 		name: "patchToolCallsMiddleware",
 		beforeAgent: async (state) => {
 			const messages = state.messages;
@@ -2600,7 +2629,7 @@ function createPatchToolCallsMiddleware() {
 			* Only trigger REMOVE_ALL_MESSAGES if patching is actually needed
 			*/
 			if (!needsPatch) return;
-			return { messages: [new RemoveMessage({ id: REMOVE_ALL_MESSAGES }), ...patchedMessages] };
+			return { messages: [new _langchain_core_messages.RemoveMessage({ id: _langchain_langgraph.REMOVE_ALL_MESSAGES }), ...patchedMessages] };
 		},
 		/**
 		* Also patch in wrapModelCall as a safety net.
@@ -2651,8 +2680,8 @@ function createPatchToolCallsMiddleware() {
 * });
 * ```
 */
-const filesValue = new ReducedValue(z$1.record(z$1.string(), FileDataSchema).default(() => ({})), {
-	inputSchema: z$1.record(z$1.string(), FileDataSchema.nullable()).optional(),
+const filesValue = new _langchain_langgraph.ReducedValue(zod.z.record(zod.z.string(), FileDataSchema).default(() => ({})), {
+	inputSchema: zod.z.record(zod.z.string(), FileDataSchema.nullable()).optional(),
 	reducer: fileDataReducer
 });
 //#endregion
@@ -2783,19 +2812,19 @@ function getModelIdentifier(model) {
 /**
 * State schema for memory middleware.
 */
-const MemoryStateSchema = new StateSchema({
+const MemoryStateSchema = new _langchain_langgraph.StateSchema({
 	/**
 	* Dict mapping source paths to their loaded content.
 	* Marked as private so it's not included in the final agent state.
 	*/
-	memoryContents: z$1.record(z$1.string(), z$1.string()).optional(),
+	memoryContents: zod.z.record(zod.z.string(), zod.z.string()).optional(),
 	files: filesValue
 });
 /**
 * Default system prompt template for memory.
 * Ported from Python's comprehensive memory guidelines.
 */
-const MEMORY_SYSTEM_PROMPT = context`
+const MEMORY_SYSTEM_PROMPT = langchain.context`
   <agent_memory>
   {memory_contents}
   </agent_memory>
@@ -2914,7 +2943,7 @@ async function loadMemoryFromBackend(backend, path) {
 */
 function createMemoryMiddleware(options) {
 	const { backend, sources, addCacheControl = false } = options;
-	return createMiddleware({
+	return (0, langchain.createMiddleware)({
 		name: "MemoryMiddleware",
 		stateSchema: MemoryStateSchema,
 		async beforeAgent(state) {
@@ -2938,7 +2967,7 @@ function createMemoryMiddleware(options) {
 				text: existingContent
 			}] : Array.isArray(existingContent) ? existingContent : [];
 			const writeCacheControl = addCacheControl && isAnthropicModel(request.model);
-			const newSystemMessage = new SystemMessage({ content: [...existingBlocks, {
+			const newSystemMessage = new langchain.SystemMessage({ content: [...existingBlocks, {
 				type: "text",
 				text: memorySection,
 				...writeCacheControl && { cache_control: { type: "ephemeral" } }
@@ -3013,15 +3042,15 @@ const SKILL_MODULE_EXTENSIONS = [
 /**
 * Zod schema for a single skill metadata entry.
 */
-const SkillMetadataEntrySchema = z$1.object({
-	name: z$1.string(),
-	description: z$1.string(),
-	path: z$1.string(),
-	license: z$1.string().nullable().optional(),
-	compatibility: z$1.string().nullable().optional(),
-	metadata: z$1.record(z$1.string(), z$1.string()).optional(),
-	allowedTools: z$1.array(z$1.string()).optional(),
-	module: z$1.string().optional()
+const SkillMetadataEntrySchema = zod.z.object({
+	name: zod.z.string(),
+	description: zod.z.string(),
+	path: zod.z.string(),
+	license: zod.z.string().nullable().optional(),
+	compatibility: zod.z.string().nullable().optional(),
+	metadata: zod.z.record(zod.z.string(), zod.z.string()).optional(),
+	allowedTools: zod.z.array(zod.z.string()).optional(),
+	module: zod.z.string().optional()
 });
 /**
 * Reducer for skillsMetadata that merges arrays from parallel subagents.
@@ -3043,9 +3072,9 @@ function skillsMetadataReducer(current, update) {
 * State schema for skills middleware.
 * Uses ReducedValue for skillsMetadata to allow concurrent updates from parallel subagents.
 */
-const SkillsStateSchema = new StateSchema({
-	skillsMetadata: new ReducedValue(z$1.array(SkillMetadataEntrySchema).default(() => []), {
-		inputSchema: z$1.array(SkillMetadataEntrySchema).optional(),
+const SkillsStateSchema = new _langchain_langgraph.StateSchema({
+	skillsMetadata: new _langchain_langgraph.ReducedValue(zod.z.array(SkillMetadataEntrySchema).default(() => []), {
+		inputSchema: zod.z.array(SkillMetadataEntrySchema).optional(),
 		reducer: skillsMetadataReducer
 	}),
 	files: filesValue
@@ -3053,7 +3082,7 @@ const SkillsStateSchema = new StateSchema({
 /**
 * Skills System Documentation prompt template.
 */
-const SKILLS_SYSTEM_PROMPT = context`
+const SKILLS_SYSTEM_PROMPT = langchain.context`
   ## Skills System
 
   You have access to a skills library that provides specialized capabilities and domain knowledge.
@@ -3206,7 +3235,7 @@ function parseSkillMetadataFromContent(content, skillPath, directoryName) {
 	const frontmatterStr = match[1];
 	let frontmatterData;
 	try {
-		frontmatterData = yaml.parse(frontmatterStr);
+		frontmatterData = yaml.default.parse(frontmatterStr);
 	} catch (e) {
 		console.warn(`Invalid YAML in ${skillPath}:`, e);
 		return null;
@@ -3398,7 +3427,7 @@ function validateModulePath(raw) {
 function createSkillsMiddleware(options) {
 	const { backend, sources } = options;
 	let loadedSkills = [];
-	return createMiddleware({
+	return (0, langchain.createMiddleware)({
 		name: "SkillsMiddleware",
 		stateSchema: SkillsStateSchema,
 		async beforeAgent(state) {
@@ -3434,6 +3463,11 @@ function createSkillsMiddleware(options) {
 }
 //#endregion
 //#region src/middleware/utils.ts
+/**
+* Utility functions for middleware.
+*
+* This module provides shared helpers used across middleware implementations.
+*/
 /**
 * Merge custom middleware into an assembled stack by `.name`.
 *
@@ -3562,9 +3596,9 @@ const CALLBACK_THREAD_ID_KEY = "callbackThreadId";
 * and read by `CompletionCallbackMiddleware` when sending callback
 * notifications.
 */
-const CompletionCallbackStateSchema = z$2.object({ 
+const CompletionCallbackStateSchema = zod.object({ 
 /** The callback thread ID. Used to address the notification. */
-[CALLBACK_THREAD_ID_KEY]: z$2.string().optional() });
+[CALLBACK_THREAD_ID_KEY]: zod.string().optional() });
 /**
 * Build headers for the callback LangGraph server.
 *
@@ -3586,7 +3620,7 @@ function resolveHeaders(headers) {
 */
 async function notifyParent(callbackGraphId, callbackThreadId, message, options) {
 	try {
-		await new Client({
+		await new _langchain_langgraph_sdk.Client({
 			apiUrl: options?.url ?? void 0,
 			apiKey: null,
 			defaultHeaders: resolveHeaders(options?.headers)
@@ -3611,7 +3645,7 @@ function extractLastMessage(state, taskId) {
 	const messages = state.messages;
 	if (!messages || messages.length === 0) throw new Error(`Expected at least one message in state ${JSON.stringify(state)}`);
 	const last = messages[messages.length - 1];
-	if (!AIMessage$1.isInstance(last)) throw new TypeError(`Expected an AIMessage, got ${typeof last === "object" && last !== null ? last.constructor?.name ?? typeof last : typeof last} instead`);
+	if (!_langchain_core_messages.AIMessage.isInstance(last)) throw new TypeError(`Expected an AIMessage, got ${typeof last === "object" && last !== null ? last.constructor?.name ?? typeof last : typeof last} instead`);
 	let textContent = last.text;
 	if (textContent.length > MAX_MESSAGE_LENGTH) {
 		textContent = textContent.slice(0, MAX_MESSAGE_LENGTH) + TRUNCATION_SUFFIX;
@@ -3679,7 +3713,7 @@ function createCompletionCallbackMiddleware(options) {
 		const taskId = getTaskId(runtime);
 		return `${taskId ? `[task_id=${taskId}]` : ""}${body}`;
 	}
-	return createMiddleware({
+	return (0, langchain.createMiddleware)({
 		name: "CompletionCallbackMiddleware",
 		stateSchema: CompletionCallbackStateSchema,
 		/**
@@ -3833,22 +3867,22 @@ Summary:`;
 * the middleware stores this event and uses it to reconstruct the effective message
 * list on subsequent calls.
 */
-const SummarizationEventSchema = z$1.object({
+const SummarizationEventSchema = zod.z.object({
 	/**
 	* The index in the state messages list where summarization occurred.
 	* Messages before this index have been summarized. */
-	cutoffIndex: z$1.number(),
+	cutoffIndex: zod.z.number(),
 	/** The HumanMessage containing the summary. */
-	summaryMessage: z$1.instanceof(HumanMessage),
+	summaryMessage: zod.z.instanceof(langchain.HumanMessage),
 	/** Path where the conversation history was offloaded, or null if offload failed. */
-	filePath: z$1.string().nullable()
+	filePath: zod.z.string().nullable()
 });
 /**
 * State schema for summarization middleware.
 */
-const SummarizationStateSchema = z$1.object({
+const SummarizationStateSchema = zod.z.object({
 	/** Session ID for history file naming */
-	_summarizationSessionId: z$1.string().optional(),
+	_summarizationSessionId: zod.z.string().optional(),
 	/** Most recent summarization event (private state, not visible to agent) */
 	_summarizationEvent: SummarizationEventSchema.optional()
 });
@@ -3857,7 +3891,7 @@ const SummarizationStateSchema = z$1.object({
 * Summary messages are HumanMessage objects with lc_source='summarization' in additional_kwargs.
 */
 function isSummaryMessage(msg) {
-	if (!HumanMessage.isInstance(msg)) return false;
+	if (!langchain.HumanMessage.isInstance(msg)) return false;
 	return msg.additional_kwargs?.lc_source === "summarization";
 }
 /**
@@ -3938,7 +3972,7 @@ function createSummarizationMiddleware(options) {
 	async function getChatModel() {
 		if (cachedModel) return cachedModel;
 		if (!model) throw new Error("Summarization middleware could not resolve a model. Provide `options.model` or ensure `request.model` is present.");
-		if (typeof model === "string") cachedModel = await initChatModel(model);
+		if (typeof model === "string") cachedModel = await (0, langchain_chat_models_universal.initChatModel)(model);
 		else cachedModel = model;
 		return cachedModel;
 	}
@@ -3986,9 +4020,9 @@ function createSummarizationMiddleware(options) {
 	*    too many messages (e.g., a single AIMessage made 20+ tool calls).
 	*/
 	function findSafeCutoffPoint(messages, cutoffIndex) {
-		if (cutoffIndex >= messages.length || !ToolMessage.isInstance(messages[cutoffIndex])) return cutoffIndex;
+		if (cutoffIndex >= messages.length || !langchain.ToolMessage.isInstance(messages[cutoffIndex])) return cutoffIndex;
 		let forwardIdx = cutoffIndex;
-		while (forwardIdx < messages.length && ToolMessage.isInstance(messages[forwardIdx])) forwardIdx++;
+		while (forwardIdx < messages.length && langchain.ToolMessage.isInstance(messages[forwardIdx])) forwardIdx++;
 		const toolCallIds = /* @__PURE__ */ new Set();
 		for (let i = cutoffIndex; i < forwardIdx; i++) {
 			const toolMsg = messages[i];
@@ -3997,7 +4031,7 @@ function createSummarizationMiddleware(options) {
 		let backwardIdx = null;
 		for (let i = cutoffIndex - 1; i >= 0; i--) {
 			const msg = messages[i];
-			if (AIMessage.isInstance(msg) && msg.tool_calls) {
+			if (langchain.AIMessage.isInstance(msg) && msg.tool_calls) {
 				const aiToolCallIds = new Set(msg.tool_calls.map((tc) => tc.id).filter((id) => id != null));
 				for (const id of toolCallIds) if (aiToolCallIds.has(id)) {
 					backwardIdx = i;
@@ -4027,7 +4061,7 @@ function createSummarizationMiddleware(options) {
 			let tokensKept = 0;
 			rawCutoff = 0;
 			for (let i = messages.length - 1; i >= 0; i--) {
-				const msgTokens = countTokensApproximately([messages[i]]);
+				const msgTokens = (0, langchain.countTokensApproximately)([messages[i]]);
 				if (tokensKept + msgTokens > targetTokenCount) {
 					rawCutoff = i + 1;
 					break;
@@ -4062,7 +4096,7 @@ function createSummarizationMiddleware(options) {
 			let tokensKept = 0;
 			rawCutoff = 0;
 			for (let i = messages.length - 1; i >= 0; i--) {
-				const msgTokens = countTokensApproximately([messages[i]]);
+				const msgTokens = (0, langchain.countTokensApproximately)([messages[i]]);
 				if (tokensKept + msgTokens > targetTokenCount) {
 					rawCutoff = i + 1;
 					break;
@@ -4077,7 +4111,7 @@ function createSummarizationMiddleware(options) {
 	* This gives a more accurate picture of what actually gets sent to the model.
 	*/
 	function countTotalTokens(messages, systemMessage, tools) {
-		return countTokensApproximately(systemMessage && SystemMessage.isInstance(systemMessage) ? [systemMessage, ...messages] : [...messages], tools && Array.isArray(tools) && tools.length > 0 ? tools : null);
+		return (0, langchain.countTokensApproximately)(systemMessage && langchain.SystemMessage.isInstance(systemMessage) ? [systemMessage, ...messages] : [...messages], tools && Array.isArray(tools) && tools.length > 0 ? tools : null);
 	}
 	/**
 	* Truncate ToolMessage content so that the total payload fits within the
@@ -4093,12 +4127,12 @@ function createSummarizationMiddleware(options) {
 	*/
 	function compactToolResults(messages, maxInputTokens, systemMessage, tools) {
 		const toolMessageIndices = [];
-		for (let i = 0; i < messages.length; i++) if (ToolMessage.isInstance(messages[i])) toolMessageIndices.push(i);
+		for (let i = 0; i < messages.length; i++) if (langchain.ToolMessage.isInstance(messages[i])) toolMessageIndices.push(i);
 		if (toolMessageIndices.length === 0) return {
 			messages,
 			modified: false
 		};
-		const overheadTokens = countTotalTokens(messages.filter((m) => !ToolMessage.isInstance(m)), systemMessage, tools);
+		const overheadTokens = countTotalTokens(messages.filter((m) => !langchain.ToolMessage.isInstance(m)), systemMessage, tools);
 		const adjustedMax = maxInputTokens / tokenEstimationMultiplier;
 		const budgetForTools = Math.max(adjustedMax * .7 - overheadTokens, 1e3);
 		const perToolBudgetChars = Math.floor(budgetForTools / toolMessageIndices.length) * 4;
@@ -4108,7 +4142,7 @@ function createSummarizationMiddleware(options) {
 			const msg = messages[idx];
 			const content = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
 			if (content.length > perToolBudgetChars) {
-				result[idx] = new ToolMessage({
+				result[idx] = new langchain.ToolMessage({
 					content: content.substring(0, perToolBudgetChars) + "\n...(result truncated)",
 					tool_call_id: msg.tool_call_id,
 					name: msg.name
@@ -4138,7 +4172,7 @@ function createSummarizationMiddleware(options) {
 		let modified = false;
 		for (let i = 0; i < messages.length; i++) {
 			const msg = messages[i];
-			if (i < cutoffIndex && AIMessage.isInstance(msg) && msg.tool_calls) {
+			if (i < cutoffIndex && langchain.AIMessage.isInstance(msg) && msg.tool_calls) {
 				const truncatedToolCalls = msg.tool_calls.map((toolCall) => {
 					const args = toolCall.args || {};
 					const truncatedArgs = {};
@@ -4157,7 +4191,7 @@ function createSummarizationMiddleware(options) {
 					return toolCall;
 				});
 				if (modified) {
-					const truncatedMsg = new AIMessage({
+					const truncatedMsg = new langchain.AIMessage({
 						content: msg.content,
 						tool_calls: truncatedToolCalls,
 						additional_kwargs: msg.additional_kwargs
@@ -4189,7 +4223,7 @@ function createSummarizationMiddleware(options) {
 	async function offloadToBackend(resolvedBackend, messages, state) {
 		const filePath = getHistoryPath(state);
 		const filteredMessages = filterSummaryMessages(messages);
-		const newSection = `## Summarized at ${(/* @__PURE__ */ new Date()).toISOString()}\n\n${getBufferString(filteredMessages)}\n\n`;
+		const newSection = `## Summarized at ${(/* @__PURE__ */ new Date()).toISOString()}\n\n${(0, _langchain_core_messages.getBufferString)(filteredMessages)}\n\n`;
 		const sectionBytes = new TextEncoder().encode(newSection);
 		try {
 			let existingBytes = null;
@@ -4224,20 +4258,20 @@ function createSummarizationMiddleware(options) {
 	*/
 	async function createSummary(messages, chatModel) {
 		let messagesToSummarize = messages;
-		if (countTokensApproximately(messages) > trimTokensToSummarize) {
+		if ((0, langchain.countTokensApproximately)(messages) > trimTokensToSummarize) {
 			let kept = 0;
 			const trimmedMessages = [];
 			for (let i = messages.length - 1; i >= 0; i--) {
-				const msgTokens = countTokensApproximately([messages[i]]);
+				const msgTokens = (0, langchain.countTokensApproximately)([messages[i]]);
 				if (kept + msgTokens > trimTokensToSummarize) break;
 				trimmedMessages.unshift(messages[i]);
 				kept += msgTokens;
 			}
 			messagesToSummarize = trimmedMessages;
 		}
-		const conversation = getBufferString(messagesToSummarize);
+		const conversation = (0, _langchain_core_messages.getBufferString)(messagesToSummarize);
 		const prompt = summaryPrompt.replace("{conversation}", conversation);
-		const response = await chatModel.invoke([new HumanMessage({ content: prompt })]);
+		const response = await chatModel.invoke([new langchain.HumanMessage({ content: prompt })]);
 		return typeof response.content === "string" ? response.content : JSON.stringify(response.content);
 	}
 	/**
@@ -4245,7 +4279,7 @@ function createSummarizationMiddleware(options) {
 	*/
 	function buildSummaryMessage(summary, filePath) {
 		let content;
-		if (filePath) content = context`
+		if (filePath) content = langchain.context`
         You are in the middle of a conversation that has been summarized.
 
         The full conversation history has been saved to ${filePath} should you need to refer back to it for details.
@@ -4257,7 +4291,7 @@ function createSummarizationMiddleware(options) {
         </summary>
       `;
 		else content = `Here is a summary of the conversation to date:\n\n${summary}`;
-		return new HumanMessage({
+		return new langchain.HumanMessage({
 			content,
 			additional_kwargs: { lc_source: "summarization" }
 		});
@@ -4297,7 +4331,7 @@ function createSummarizationMiddleware(options) {
 		let cause = err;
 		for (;;) {
 			if (!cause) break;
-			if (ContextOverflowError.isInstance(cause)) return true;
+			if (_langchain_core_errors.ContextOverflowError.isInstance(cause)) return true;
 			cause = typeof cause === "object" && "cause" in cause ? cause.cause : void 0;
 		}
 		return false;
@@ -4350,7 +4384,7 @@ function createSummarizationMiddleware(options) {
 				messages: modifiedMessages
 			});
 		}
-		return new Command({ update: {
+		return new _langchain_langgraph.Command({ update: {
 			_summarizationEvent: {
 				cutoffIndex: finalStateCutoffIndex,
 				summaryMessage: finalSummaryMessage,
@@ -4359,7 +4393,7 @@ function createSummarizationMiddleware(options) {
 			_summarizationSessionId: getSessionId(request.state)
 		} });
 	}
-	return createMiddleware({
+	return (0, langchain.createMiddleware)({
 		name: "SummarizationMiddleware",
 		stateSchema: SummarizationStateSchema,
 		async wrapModelCall(request, handler) {
@@ -4416,16 +4450,16 @@ function toolCallIdFromRuntime(runtime) {
 * Used by the {@link ReducedValue} in the state schema so that LangGraph
 * can validate and serialize task records stored in `asyncTasks`.
 */
-const AsyncTaskSchema = z.object({
-	taskId: z.string(),
-	agentName: z.string(),
-	threadId: z.string(),
-	runId: z.string(),
-	status: z.string(),
-	createdAt: z.string(),
-	description: z.string().optional(),
-	updatedAt: z.string().optional(),
-	checkedAt: z.string().optional()
+const AsyncTaskSchema = zod_v4.z.object({
+	taskId: zod_v4.z.string(),
+	agentName: zod_v4.z.string(),
+	threadId: zod_v4.z.string(),
+	runId: zod_v4.z.string(),
+	status: zod_v4.z.string(),
+	createdAt: zod_v4.z.string(),
+	description: zod_v4.z.string().optional(),
+	updatedAt: zod_v4.z.string().optional(),
+	checkedAt: zod_v4.z.string().optional()
 });
 /**
 * State schema for the async subagent middleware.
@@ -4434,8 +4468,8 @@ const AsyncTaskSchema = z.object({
 * tool updates (launch, check, update, cancel, list) merge into the existing
 * tasks dict rather than replacing it wholesale.
 */
-const AsyncTaskStateSchema = new StateSchema({ asyncTasks: new ReducedValue(z.record(z.string(), AsyncTaskSchema).default(() => ({})), {
-	inputSchema: z.record(z.string(), AsyncTaskSchema).optional(),
+const AsyncTaskStateSchema = new _langchain_langgraph.StateSchema({ asyncTasks: new _langchain_langgraph.ReducedValue(zod_v4.z.record(zod_v4.z.string(), AsyncTaskSchema).default(() => ({})), {
+	inputSchema: zod_v4.z.record(zod_v4.z.string(), AsyncTaskSchema).optional(),
 	reducer: asyncTasksReducer
 }) });
 /**
@@ -4610,7 +4644,7 @@ var ClientCache = class {
 		const existing = this.clients.get(key);
 		if (existing) return existing;
 		const headers = this.resolveHeaders(spec);
-		const client = new Client({
+		const client = new _langchain_langgraph_sdk.Client({
 			apiUrl: spec.url,
 			defaultHeaders: headers
 		});
@@ -4639,7 +4673,7 @@ function extractCallbackContext(runtime) {
 * `Command` that persists the new task in state.
 */
 function buildStartTool(agentMap, clients, toolDescription) {
-	return tool(async (input, runtime) => {
+	return (0, langchain.tool)(async (input, runtime) => {
 		if (!(input.agentName in agentMap)) {
 			const allowed = Object.keys(agentMap).map((k) => `\`${k}\``).join(", ");
 			return `Unknown async subagent type \`${input.agentName}\`. Available types: ${allowed}`;
@@ -4666,8 +4700,8 @@ function buildStartTool(agentMap, clients, toolDescription) {
 				createdAt: (/* @__PURE__ */ new Date()).toISOString(),
 				description: input.description
 			};
-			return new Command({ update: {
-				messages: [new ToolMessage({
+			return new _langchain_langgraph.Command({ update: {
+				messages: [new langchain.ToolMessage({
 					content: `Launched async subagent. taskId: ${taskId}`,
 					tool_call_id: toolCallIdFromRuntime(runtime)
 				})],
@@ -4679,9 +4713,9 @@ function buildStartTool(agentMap, clients, toolDescription) {
 	}, {
 		name: "start_async_task",
 		description: toolDescription,
-		schema: z.object({
-			description: z.string().describe("A detailed description of the task for the async subagent to perform."),
-			agentName: z.string().describe("The type of async subagent to use. Must be one of the available types listed in the tool description.")
+		schema: zod_v4.z.object({
+			description: zod_v4.z.string().describe("A detailed description of the task for the async subagent to perform."),
+			agentName: zod_v4.z.string().describe("The type of async subagent to use. Must be one of the available types listed in the tool description.")
 		})
 	});
 }
@@ -4692,7 +4726,7 @@ function buildStartTool(agentMap, clients, toolDescription) {
 * succeeded, retrieves the thread state to extract the result.
 */
 function buildCheckTool(clients) {
-	return tool(async (input, runtime) => {
+	return (0, langchain.tool)(async (input, runtime) => {
 		const task = resolveTrackedTask(input.taskId, runtime.state);
 		if (typeof task === "string") return task;
 		const client = clients.getClient(task.agentName);
@@ -4717,8 +4751,8 @@ function buildCheckTool(clients) {
 			updatedAt: result.status !== task.status ? (/* @__PURE__ */ new Date()).toISOString() : task.updatedAt,
 			checkedAt: (/* @__PURE__ */ new Date()).toISOString()
 		};
-		return new Command({ update: {
-			messages: [new ToolMessage({
+		return new _langchain_langgraph.Command({ update: {
+			messages: [new langchain.ToolMessage({
 				content: JSON.stringify(result),
 				tool_call_id: toolCallIdFromRuntime(runtime)
 			})],
@@ -4727,7 +4761,7 @@ function buildCheckTool(clients) {
 	}, {
 		name: "check_async_task",
 		description: "Check the status of an async subagent task. Returns the current status and, if complete, the result. Statuses shown earlier in the conversation are always stale, so call this to get the current status rather than reporting a status from a previous tool result.",
-		schema: z.object({ taskId: z.string().describe("The exact taskId string returned by start_async_task. Pass it verbatim.") })
+		schema: zod_v4.z.object({ taskId: zod_v4.z.string().describe("The exact taskId string returned by start_async_task. Pass it verbatim.") })
 	});
 }
 /**
@@ -4739,7 +4773,7 @@ function buildCheckTool(clients) {
 * remains the same; only the internal `runId` is updated.
 */
 function buildUpdateTool(agentMap, clients) {
-	return tool(async (input, runtime) => {
+	return (0, langchain.tool)(async (input, runtime) => {
 		const tracked = resolveTrackedTask(input.taskId, runtime.state);
 		if (typeof tracked === "string") return tracked;
 		const spec = agentMap[tracked.agentName];
@@ -4762,8 +4796,8 @@ function buildUpdateTool(agentMap, clients) {
 				updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
 				checkedAt: tracked.checkedAt
 			};
-			return new Command({ update: {
-				messages: [new ToolMessage({
+			return new _langchain_langgraph.Command({ update: {
+				messages: [new langchain.ToolMessage({
 					content: `Updated async subagent. taskId: ${tracked.taskId}`,
 					tool_call_id: toolCallIdFromRuntime(runtime)
 				})],
@@ -4775,9 +4809,9 @@ function buildUpdateTool(agentMap, clients) {
 	}, {
 		name: "update_async_task",
 		description: "send updated instructions to an async subagent. Interrupts the current run and starts a new one on the same thread so the subagent sees the full conversation history plus your new message. The taskId remains the same.",
-		schema: z.object({
-			taskId: z.string().describe("The exact taskId string returned by start_async_task. Pass it verbatim."),
-			message: z.string().describe("Follow-up instructions or context to send to the subagent")
+		schema: zod_v4.z.object({
+			taskId: zod_v4.z.string().describe("The exact taskId string returned by start_async_task. Pass it verbatim."),
+			message: zod_v4.z.string().describe("Follow-up instructions or context to send to the subagent")
 		})
 	});
 }
@@ -4788,7 +4822,7 @@ function buildUpdateTool(agentMap, clients) {
 * cached status to `"cancelled"`.
 */
 function buildCancelTool(clients) {
-	return tool(async (input, runtime) => {
+	return (0, langchain.tool)(async (input, runtime) => {
 		const tracked = resolveTrackedTask(input.taskId, runtime.state);
 		if (typeof tracked === "string") return tracked;
 		const client = clients.getClient(tracked.agentName);
@@ -4807,8 +4841,8 @@ function buildCancelTool(clients) {
 			updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
 			checkedAt: tracked.checkedAt
 		};
-		return new Command({ update: {
-			messages: [new ToolMessage({
+		return new _langchain_langgraph.Command({ update: {
+			messages: [new langchain.ToolMessage({
 				content: `Cancelled async subagent task: ${tracked.taskId}`,
 				tool_call_id: toolCallIdFromRuntime(runtime)
 			})],
@@ -4817,7 +4851,7 @@ function buildCancelTool(clients) {
 	}, {
 		name: "cancel_async_task",
 		description: "Cancel a running async subagent task. Use this to stop a task that is no longer needed.",
-		schema: z.object({ taskId: z.string().describe("The exact taskId string returned by start_async_task. Pass it verbatim.") })
+		schema: zod_v4.z.object({ taskId: zod_v4.z.string().describe("The exact taskId string returned by start_async_task. Pass it verbatim.") })
 	});
 }
 /**
@@ -4827,7 +4861,7 @@ function buildCancelTool(clients) {
 * Supports optional filtering by cached status.
 */
 function buildListTool(clients) {
-	return tool(async (input, runtime) => {
+	return (0, langchain.tool)(async (input, runtime) => {
 		const filtered = filterTasks(runtime.state.asyncTasks ?? {}, input.statusFilter ?? void 0);
 		if (filtered.length === 0) return "No async subagent tasks tracked";
 		const statuses = await Promise.all(filtered.map((task) => fetchLiveTaskStatus(clients, task)));
@@ -4849,8 +4883,8 @@ function buildListTool(clients) {
 				checkedAt: task.checkedAt
 			};
 		}
-		return new Command({ update: {
-			messages: [new ToolMessage({
+		return new _langchain_langgraph.Command({ update: {
+			messages: [new langchain.ToolMessage({
 				content: `${entries.length} tracked task(s):\n${entries.join("\n")}`,
 				tool_call_id: toolCallIdFromRuntime(runtime)
 			})],
@@ -4859,7 +4893,7 @@ function buildListTool(clients) {
 	}, {
 		name: "list_async_tasks",
 		description: "List tracked async subagent tasks with their current live statuses. By default shows all tasks. Use `statusFilter` to narrow by status (e.g., 'running', 'success', 'error', 'cancelled'). Use `check_async_task` to get the full result of a specific completed task. Statuses shown earlier in the conversation are always stale, so call this to read current statuses rather than reporting one from a previous tool result.",
-		schema: z.object({ statusFilter: z.string().nullish().describe("Filter tasks by status. One of: 'running', 'success', 'error', 'cancelled', 'all'. Defaults to 'all'.") })
+		schema: zod_v4.z.object({ statusFilter: zod_v4.z.string().nullish().describe("Filter tasks by status. One of: 'running', 'success', 'error', 'cancelled', 'all'. Defaults to 'all'.") })
 	});
 }
 /**
@@ -4913,14 +4947,14 @@ function createAsyncSubAgentMiddleware(options) {
 		buildListTool(clients)
 	];
 	const fullSystemPrompt = systemPrompt ? `${systemPrompt}\n\nAvailable async subagent types:\n${agentsDescription}` : null;
-	return createMiddleware({
+	return (0, langchain.createMiddleware)({
 		name: "asyncSubAgentMiddleware",
 		stateSchema: AsyncTaskStateSchema,
 		tools,
 		wrapModelCall: async (request, handler) => {
 			if (fullSystemPrompt !== null) return handler({
 				...request,
-				systemMessage: request.systemMessage.concat(new SystemMessage({ content: fullSystemPrompt }))
+				systemMessage: request.systemMessage.concat(new langchain.SystemMessage({ content: fullSystemPrompt }))
 			});
 			return handler(request);
 		}
@@ -4995,7 +5029,7 @@ var ConfigurationError = class ConfigurationError extends Error {
 * This is a no-op when the system message has no content blocks.
 */
 function createCacheBreakpointMiddleware() {
-	return createMiddleware({
+	return (0, langchain.createMiddleware)({
 		name: "CacheBreakpointMiddleware",
 		wrapModelCall(request, handler) {
 			if (!isAnthropicModel(request.model)) return handler(request);
@@ -5011,7 +5045,7 @@ function createCacheBreakpointMiddleware() {
 			};
 			return handler({
 				...request,
-				systemMessage: new SystemMessage({ content: existingBlocks })
+				systemMessage: new langchain.SystemMessage({ content: existingBlocks })
 			});
 		}
 	});
@@ -5028,7 +5062,7 @@ function hasToolName(tool) {
 * @internal
 */
 function createToolExclusionMiddleware(excludedTools) {
-	return createMiddleware({
+	return (0, langchain.createMiddleware)({
 		name: "_ToolExclusionMiddleware",
 		wrapModelCall(request, handler) {
 			return handler({
@@ -5175,10 +5209,10 @@ const POISONED_KEYS = /* @__PURE__ */ new Set([
 * Zod schema for the general-purpose subagent config section of an
 * external harness profile config file.
 */
-const generalPurposeSubagentConfigSchema = z.object({
-	enabled: z.boolean().optional(),
-	description: z.string().optional(),
-	systemPrompt: z.string().optional()
+const generalPurposeSubagentConfigSchema = zod_v4.z.object({
+	enabled: zod_v4.z.boolean().optional(),
+	description: zod_v4.z.string().optional(),
+	systemPrompt: zod_v4.z.string().optional()
 }).strict();
 /**
 * Zod schema for parsing a harness profile from an external JSON or
@@ -5202,12 +5236,12 @@ const generalPurposeSubagentConfigSchema = z.object({
 * const profile = createHarnessProfile(config);
 * ```
 */
-const harnessProfileConfigSchema = z.object({
-	baseSystemPrompt: z.string().optional(),
-	systemPromptSuffix: z.string().optional(),
-	toolDescriptionOverrides: z.record(z.string(), z.string()).optional(),
-	excludedTools: z.array(z.string()).optional(),
-	excludedMiddleware: z.array(z.string()).optional(),
+const harnessProfileConfigSchema = zod_v4.z.object({
+	baseSystemPrompt: zod_v4.z.string().optional(),
+	systemPromptSuffix: zod_v4.z.string().optional(),
+	toolDescriptionOverrides: zod_v4.z.record(zod_v4.z.string(), zod_v4.z.string()).optional(),
+	excludedTools: zod_v4.z.array(zod_v4.z.string()).optional(),
+	excludedMiddleware: zod_v4.z.array(zod_v4.z.string()).optional(),
 	generalPurposeSubagent: generalPurposeSubagentConfigSchema.optional()
 }).strict();
 /**
@@ -5490,7 +5524,7 @@ without seeing a prior result.
 Mark each as done, blocked (with a one-sentence reason), or cancelled. Do not \
 finish with pending items.`;
 function createExtraMiddleware() {
-	return [todoListMiddleware()];
+	return [(0, langchain.todoListMiddleware)()];
 }
 /**
 * Register the built-in Codex harness profiles.
@@ -5715,7 +5749,7 @@ function applyProfilePrompt(profile, basePrompt) {
 //#region src/agent.ts
 function normalizeSystemPrompt(systemPrompt) {
 	if (systemPrompt === void 0) return {};
-	if (typeof systemPrompt === "string" || SystemMessage.isInstance(systemPrompt)) return { prefix: systemPrompt };
+	if (typeof systemPrompt === "string" || langchain.SystemMessage.isInstance(systemPrompt)) return { prefix: systemPrompt };
 	return systemPrompt;
 }
 function assemblePromptParts(parts) {
@@ -5728,13 +5762,13 @@ function assemblePromptParts(parts) {
 			type: "text",
 			text: "\n\n"
 		});
-		if (SystemMessage.isInstance(part)) contentBlocks.push(...part.contentBlocks);
+		if (langchain.SystemMessage.isInstance(part)) contentBlocks.push(...part.contentBlocks);
 		else contentBlocks.push({
 			type: "text",
 			text: part
 		});
 	}
-	return new SystemMessage({ contentBlocks });
+	return new langchain.SystemMessage({ contentBlocks });
 }
 const BUILTIN_TOOL_NAMES = /* @__PURE__ */ new Set([
 	...FILESYSTEM_TOOL_NAMES,
@@ -5789,13 +5823,13 @@ function createDeepAgent(params = {}) {
 	let cacheMiddleware = [];
 	if (anthropicModel) cacheMiddleware = [
 		...cacheMiddleware,
-		anthropicPromptCachingMiddleware({
+		(0, langchain.anthropicPromptCachingMiddleware)({
 			unsupportedModelBehavior: "ignore",
 			minMessagesToCache: 1
 		}),
 		createCacheBreakpointMiddleware()
 	];
-	if (bedrockModel) cacheMiddleware = [...cacheMiddleware, bedrockPromptCachingMiddleware({ unsupportedModelBehavior: "ignore" })];
+	if (bedrockModel) cacheMiddleware = [...cacheMiddleware, (0, langchain.bedrockPromptCachingMiddleware)({ unsupportedModelBehavior: "ignore" })];
 	/**
 	* Process subagents to add SkillsMiddleware for those with their own skills.
 	*
@@ -5880,7 +5914,7 @@ function createDeepAgent(params = {}) {
 			sources: memory,
 			addCacheControl: anthropicModel
 		})] : [],
-		...interruptOn ? [humanInTheLoopMiddleware({ interruptOn })] : []
+		...interruptOn ? [(0, langchain.humanInTheLoopMiddleware)({ interruptOn })] : []
 	]);
 	if (harnessProfile.excludedMiddleware.size > 0) {
 		const excluded = harnessProfile.excludedMiddleware;
@@ -5905,7 +5939,7 @@ function createDeepAgent(params = {}) {
 	* - Subagents: TSubagents (for type-safe streaming)
 	* - StreamTransformers: TStreamTransformers
 	*/
-	return createAgent({
+	return (0, langchain.createAgent)({
 		model,
 		...finalSystemPrompt !== "" && { systemPrompt: finalSystemPrompt },
 		stateSchema,
@@ -5939,7 +5973,7 @@ function createDeepAgent(params = {}) {
 * @deprecated Retained for compatibility only. This prompt is not injected by
 * default and will be removed in the next major release.
 */
-const BASE_AGENT_PROMPT = context`
+const BASE_AGENT_PROMPT = langchain.context`
   You are a Deep Agent, an AI assistant that helps users accomplish tasks using tools. You respond with text and tool calls. The user can see your responses and tool outputs in real time.
 
   ## Core Behavior
@@ -5978,7 +6012,7 @@ const BASE_AGENT_PROMPT = context`
 * @deprecated Retained for compatibility only. Task-tool guidance now lives in
 * the task tool schema and this export will be removed in the next major release.
 */
-const TASK_SYSTEM_PROMPT = context`
+const TASK_SYSTEM_PROMPT = langchain.context`
   ## \`task\` (subagent spawner)
 
   You have access to a \`task\` tool to launch short-lived subagents that handle isolated tasks. These agents are ephemeral — they live only for the duration of the task and return a single result.
@@ -6051,7 +6085,7 @@ You have access to async subagent tools that launch background tasks on remote s
 * @deprecated Retained for compatibility only. Execute guidance now lives in
 * the execute tool schema and this export will be removed in the next major release.
 */
-const EXECUTION_SYSTEM_PROMPT = context`
+const EXECUTION_SYSTEM_PROMPT = langchain.context`
   ## Execute Tool \`execute\`
 
   You have access to an \`execute\` tool for running shell commands in a sandboxed environment.
@@ -6138,7 +6172,7 @@ var StoreBackend = class {
 			return store;
 		}
 		if (this.storeOverride) return this.storeOverride;
-		const store = getStore();
+		const store = (0, _langchain_langgraph.getStore)();
 		if (!store) throw new Error("Store is required but not available in LangGraph execution context. Ensure the graph was configured with a store.");
 		return store;
 	}
@@ -6148,7 +6182,7 @@ var StoreBackend = class {
 	getState() {
 		if (this.stateAndStore) return this.stateAndStore.state;
 		try {
-			return getCurrentTaskInput();
+			return (0, _langchain_langgraph.getCurrentTaskInput)();
 		} catch {
 			return;
 		}
@@ -6163,7 +6197,7 @@ var StoreBackend = class {
 			configurable: getObjectRecord(injectedConfig.configurable)
 		};
 		try {
-			const configRecord = getObjectRecord(getConfig());
+			const configRecord = getObjectRecord((0, _langchain_langgraph.getConfig)());
 			if (!configRecord) return;
 			return {
 				metadata: getObjectRecord(configRecord.metadata),
@@ -6586,7 +6620,7 @@ var ContextHubBackend = class ContextHubBackend {
 	commitHash = null;
 	constructor(identifier, options = {}) {
 		this.identifier = identifier;
-		this.client = options.client ?? new Client$1();
+		this.client = options.client ?? new langsmith.Client();
 	}
 	static stripPrefix(path) {
 		return path.replace(/^\/+/, "");
@@ -6730,7 +6764,7 @@ var ContextHubBackend = class ContextHubBackend {
 		const matches = [];
 		for (const [filePath, content] of Object.entries(cache)) {
 			if (prefix && !filePath.startsWith(prefix)) continue;
-			if (glob && !micromatch.isMatch(filePath, glob, FNMATCH_OPTIONS)) continue;
+			if (glob && !micromatch.default.isMatch(filePath, glob, FNMATCH_OPTIONS)) continue;
 			const lines = content.split("\n");
 			for (let index = 0; index < lines.length; index++) {
 				const line = lines[index];
@@ -6752,7 +6786,7 @@ var ContextHubBackend = class ContextHubBackend {
 			throw error;
 		}
 		const files = [];
-		for (const filePath of Object.keys(cache)) if (micromatch.isMatch(`/${filePath}`, pattern, FNMATCH_OPTIONS) || micromatch.isMatch(filePath, pattern, FNMATCH_OPTIONS)) files.push({
+		for (const filePath of Object.keys(cache)) if (micromatch.default.isMatch(`/${filePath}`, pattern, FNMATCH_OPTIONS) || micromatch.default.isMatch(filePath, pattern, FNMATCH_OPTIONS)) files.push({
 			path: `/${filePath}`,
 			is_dir: false
 		});
@@ -7390,12 +7424,12 @@ var LangSmithSandbox = class LangSmithSandbox extends BaseSandbox {
 				error: null
 			});
 		} catch (err) {
-			if (err instanceof LangSmithResourceNotFoundError) responses.push({
+			if (err instanceof langsmith_experimental_sandbox.LangSmithResourceNotFoundError) responses.push({
 				path,
 				content: null,
 				error: "file_not_found"
 			});
-			else if (err instanceof LangSmithSandboxError) {
+			else if (err instanceof langsmith_experimental_sandbox.LangSmithSandboxError) {
 				const error = String(err.message).toLowerCase().includes("is a directory") ? "is_directory" : "file_not_found";
 				responses.push({
 					path,
@@ -7502,7 +7536,7 @@ var LangSmithSandbox = class LangSmithSandbox extends BaseSandbox {
 		if (!snapshotId && !templateName) throw new Error("Either snapshotId or templateName is required. snapshotId is recommended — template-based creation is deprecated.");
 		const sandboxOptions = { ...createSandboxOptions };
 		if (templateName) sandboxOptions.snapshotName = templateName;
-		const sandbox = await new SandboxClient({ apiKey }).createSandbox(snapshotId, sandboxOptions);
+		const sandbox = await new langsmith_experimental_sandbox.SandboxClient({ apiKey }).createSandbox(snapshotId, sandboxOptions);
 		return new LangSmithSandbox({
 			sandbox,
 			defaultTimeout
@@ -7510,6 +7544,311 @@ var LangSmithSandbox = class LangSmithSandbox extends BaseSandbox {
 	}
 };
 //#endregion
-export { filesValue as A, StateBackend as B, createSummarizationMiddleware as C, MAX_SKILL_NAME_LENGTH as D, MAX_SKILL_FILE_SIZE as E, SUBAGENT_RESPONSE_FORMAT_CONFIG_KEY as F, adaptBackendProtocol as G, isSandboxBackend as H, createSubAgent as I, getMimeType as J, adaptSandboxProtocol as K, createSubAgentMiddleware as L, DEFAULT_GENERAL_PURPOSE_DESCRIPTION as M, DEFAULT_SUBAGENT_PROMPT as N, createSkillsMiddleware as O, GENERAL_PURPOSE_SUBAGENT as P, createFilesystemMiddleware as R, computeSummarizationDefaults as S, MAX_SKILL_DESCRIPTION_LENGTH as T, isSandboxProtocol as U, SandboxError as V, resolveBackend as W, performStringReplacement as X, isTextMimeType as Y, createHarnessProfile as _, ASYNC_TASK_SYSTEM_PROMPT as a, createAsyncSubAgentMiddleware as b, TASK_SYSTEM_PROMPT as c, registerHarnessProfile as d, generalPurposeSubagentConfigSchema as f, EMPTY_HARNESS_PROFILE as g, serializeProfile as h, StoreBackend as i, createPatchToolCallsMiddleware as j, createMemoryMiddleware as k, createDeepAgent as l, parseHarnessProfileConfig as m, BaseSandbox as n, BASE_AGENT_PROMPT as o, harnessProfileConfigSchema as p, checkEmptyContent as q, ContextHubBackend as r, EXECUTION_SYSTEM_PROMPT as s, LangSmithSandbox as t, getHarnessProfile as u, REQUIRED_MIDDLEWARE_NAMES as v, createCompletionCallbackMiddleware as w, isAsyncSubAgent as x, ConfigurationError as y, CompositeBackend as z };
+Object.defineProperty(exports, "ASYNC_TASK_SYSTEM_PROMPT", {
+	enumerable: true,
+	get: function() {
+		return ASYNC_TASK_SYSTEM_PROMPT;
+	}
+});
+Object.defineProperty(exports, "BASE_AGENT_PROMPT", {
+	enumerable: true,
+	get: function() {
+		return BASE_AGENT_PROMPT;
+	}
+});
+Object.defineProperty(exports, "BaseSandbox", {
+	enumerable: true,
+	get: function() {
+		return BaseSandbox;
+	}
+});
+Object.defineProperty(exports, "CompositeBackend", {
+	enumerable: true,
+	get: function() {
+		return CompositeBackend;
+	}
+});
+Object.defineProperty(exports, "ConfigurationError", {
+	enumerable: true,
+	get: function() {
+		return ConfigurationError;
+	}
+});
+Object.defineProperty(exports, "ContextHubBackend", {
+	enumerable: true,
+	get: function() {
+		return ContextHubBackend;
+	}
+});
+Object.defineProperty(exports, "DEFAULT_GENERAL_PURPOSE_DESCRIPTION", {
+	enumerable: true,
+	get: function() {
+		return DEFAULT_GENERAL_PURPOSE_DESCRIPTION;
+	}
+});
+Object.defineProperty(exports, "DEFAULT_SUBAGENT_PROMPT", {
+	enumerable: true,
+	get: function() {
+		return DEFAULT_SUBAGENT_PROMPT;
+	}
+});
+Object.defineProperty(exports, "EMPTY_HARNESS_PROFILE", {
+	enumerable: true,
+	get: function() {
+		return EMPTY_HARNESS_PROFILE;
+	}
+});
+Object.defineProperty(exports, "EXECUTION_SYSTEM_PROMPT", {
+	enumerable: true,
+	get: function() {
+		return EXECUTION_SYSTEM_PROMPT;
+	}
+});
+Object.defineProperty(exports, "GENERAL_PURPOSE_SUBAGENT", {
+	enumerable: true,
+	get: function() {
+		return GENERAL_PURPOSE_SUBAGENT;
+	}
+});
+Object.defineProperty(exports, "LangSmithSandbox", {
+	enumerable: true,
+	get: function() {
+		return LangSmithSandbox;
+	}
+});
+Object.defineProperty(exports, "MAX_SKILL_DESCRIPTION_LENGTH", {
+	enumerable: true,
+	get: function() {
+		return MAX_SKILL_DESCRIPTION_LENGTH;
+	}
+});
+Object.defineProperty(exports, "MAX_SKILL_FILE_SIZE", {
+	enumerable: true,
+	get: function() {
+		return MAX_SKILL_FILE_SIZE;
+	}
+});
+Object.defineProperty(exports, "MAX_SKILL_NAME_LENGTH", {
+	enumerable: true,
+	get: function() {
+		return MAX_SKILL_NAME_LENGTH;
+	}
+});
+Object.defineProperty(exports, "REQUIRED_MIDDLEWARE_NAMES", {
+	enumerable: true,
+	get: function() {
+		return REQUIRED_MIDDLEWARE_NAMES;
+	}
+});
+Object.defineProperty(exports, "SUBAGENT_RESPONSE_FORMAT_CONFIG_KEY", {
+	enumerable: true,
+	get: function() {
+		return SUBAGENT_RESPONSE_FORMAT_CONFIG_KEY;
+	}
+});
+Object.defineProperty(exports, "SandboxError", {
+	enumerable: true,
+	get: function() {
+		return SandboxError;
+	}
+});
+Object.defineProperty(exports, "StateBackend", {
+	enumerable: true,
+	get: function() {
+		return StateBackend;
+	}
+});
+Object.defineProperty(exports, "StoreBackend", {
+	enumerable: true,
+	get: function() {
+		return StoreBackend;
+	}
+});
+Object.defineProperty(exports, "TASK_SYSTEM_PROMPT", {
+	enumerable: true,
+	get: function() {
+		return TASK_SYSTEM_PROMPT;
+	}
+});
+Object.defineProperty(exports, "__toESM", {
+	enumerable: true,
+	get: function() {
+		return __toESM;
+	}
+});
+Object.defineProperty(exports, "adaptBackendProtocol", {
+	enumerable: true,
+	get: function() {
+		return adaptBackendProtocol;
+	}
+});
+Object.defineProperty(exports, "adaptSandboxProtocol", {
+	enumerable: true,
+	get: function() {
+		return adaptSandboxProtocol;
+	}
+});
+Object.defineProperty(exports, "checkEmptyContent", {
+	enumerable: true,
+	get: function() {
+		return checkEmptyContent;
+	}
+});
+Object.defineProperty(exports, "computeSummarizationDefaults", {
+	enumerable: true,
+	get: function() {
+		return computeSummarizationDefaults;
+	}
+});
+Object.defineProperty(exports, "createAsyncSubAgentMiddleware", {
+	enumerable: true,
+	get: function() {
+		return createAsyncSubAgentMiddleware;
+	}
+});
+Object.defineProperty(exports, "createCompletionCallbackMiddleware", {
+	enumerable: true,
+	get: function() {
+		return createCompletionCallbackMiddleware;
+	}
+});
+Object.defineProperty(exports, "createDeepAgent", {
+	enumerable: true,
+	get: function() {
+		return createDeepAgent;
+	}
+});
+Object.defineProperty(exports, "createFilesystemMiddleware", {
+	enumerable: true,
+	get: function() {
+		return createFilesystemMiddleware;
+	}
+});
+Object.defineProperty(exports, "createHarnessProfile", {
+	enumerable: true,
+	get: function() {
+		return createHarnessProfile;
+	}
+});
+Object.defineProperty(exports, "createMemoryMiddleware", {
+	enumerable: true,
+	get: function() {
+		return createMemoryMiddleware;
+	}
+});
+Object.defineProperty(exports, "createPatchToolCallsMiddleware", {
+	enumerable: true,
+	get: function() {
+		return createPatchToolCallsMiddleware;
+	}
+});
+Object.defineProperty(exports, "createSkillsMiddleware", {
+	enumerable: true,
+	get: function() {
+		return createSkillsMiddleware;
+	}
+});
+Object.defineProperty(exports, "createSubAgent", {
+	enumerable: true,
+	get: function() {
+		return createSubAgent;
+	}
+});
+Object.defineProperty(exports, "createSubAgentMiddleware", {
+	enumerable: true,
+	get: function() {
+		return createSubAgentMiddleware;
+	}
+});
+Object.defineProperty(exports, "createSummarizationMiddleware", {
+	enumerable: true,
+	get: function() {
+		return createSummarizationMiddleware;
+	}
+});
+Object.defineProperty(exports, "filesValue", {
+	enumerable: true,
+	get: function() {
+		return filesValue;
+	}
+});
+Object.defineProperty(exports, "generalPurposeSubagentConfigSchema", {
+	enumerable: true,
+	get: function() {
+		return generalPurposeSubagentConfigSchema;
+	}
+});
+Object.defineProperty(exports, "getHarnessProfile", {
+	enumerable: true,
+	get: function() {
+		return getHarnessProfile;
+	}
+});
+Object.defineProperty(exports, "getMimeType", {
+	enumerable: true,
+	get: function() {
+		return getMimeType;
+	}
+});
+Object.defineProperty(exports, "harnessProfileConfigSchema", {
+	enumerable: true,
+	get: function() {
+		return harnessProfileConfigSchema;
+	}
+});
+Object.defineProperty(exports, "isAsyncSubAgent", {
+	enumerable: true,
+	get: function() {
+		return isAsyncSubAgent;
+	}
+});
+Object.defineProperty(exports, "isSandboxBackend", {
+	enumerable: true,
+	get: function() {
+		return isSandboxBackend;
+	}
+});
+Object.defineProperty(exports, "isSandboxProtocol", {
+	enumerable: true,
+	get: function() {
+		return isSandboxProtocol;
+	}
+});
+Object.defineProperty(exports, "isTextMimeType", {
+	enumerable: true,
+	get: function() {
+		return isTextMimeType;
+	}
+});
+Object.defineProperty(exports, "parseHarnessProfileConfig", {
+	enumerable: true,
+	get: function() {
+		return parseHarnessProfileConfig;
+	}
+});
+Object.defineProperty(exports, "performStringReplacement", {
+	enumerable: true,
+	get: function() {
+		return performStringReplacement;
+	}
+});
+Object.defineProperty(exports, "registerHarnessProfile", {
+	enumerable: true,
+	get: function() {
+		return registerHarnessProfile;
+	}
+});
+Object.defineProperty(exports, "resolveBackend", {
+	enumerable: true,
+	get: function() {
+		return resolveBackend;
+	}
+});
+Object.defineProperty(exports, "serializeProfile", {
+	enumerable: true,
+	get: function() {
+		return serializeProfile;
+	}
+});
 
-//# sourceMappingURL=langsmith-B6Yy3zeh.js.map
+//# sourceMappingURL=langsmith-BoiL5ESf.cjs.map
